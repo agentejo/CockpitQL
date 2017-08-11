@@ -1,0 +1,10 @@
+*~
+*.diff
+*.patch
+.DS_Store
+.project
+.settings
+.idea
+/node_modules
+!.gitignore
+!.gitkeep
