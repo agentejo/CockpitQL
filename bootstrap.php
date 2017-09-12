@@ -17,6 +17,9 @@ if (COCKPIT_API_REQUEST) {
 
         $routes['graphql'] = function() use($app) {
 
+            $query = $app->param('query', '{}');
+            $variableValues = $app->param('variables', null);
+
             $config = new ArrayObject([
                 'name' => 'Query',
                 'fields' => [
@@ -25,6 +28,8 @@ if (COCKPIT_API_REQUEST) {
                 ]
             ]);
 
+            include(__DIR__.'/fields/dynamic_collections.php');
+
             $app->trigger('cockpitql.config', [$config]);
 
             $queryType = new ObjectType($config->getArrayCopy());
@@ -32,13 +37,10 @@ if (COCKPIT_API_REQUEST) {
                 'query' => $queryType
             ]);
 
-            $query = $app->param('query', '{}');
-            $variableValues = null;
-
             try {
 
                 $rootValue = [];
-                $result = GraphQL::execute($schema, $query, $rootValue, null, null);
+                $result = GraphQL::execute($schema, $query, $rootValue, null, $variableValues);
 
                 if (isset($result['data'])) {
 
