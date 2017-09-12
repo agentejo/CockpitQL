@@ -1,6 +1,9 @@
 <?php
 namespace GraphQL\Type\Definition;
 
+use GraphQL\Error\InvariantViolation;
+use GraphQL\Utils\Utils;
+
 
 /**
  * Class FieldArgument
@@ -31,14 +34,9 @@ class FieldArgument
     public $config;
 
     /**
-     * @var InputType|callable
-     */
-    private $type;
-
-    /**
      * @var InputType
      */
-    private $resolvedType;
+    private $type;
 
     /**
      * @var bool
@@ -92,10 +90,7 @@ class FieldArgument
      */
     public function getType()
     {
-        if (null === $this->resolvedType) {
-            $this->resolvedType = Type::resolve($this->type);
-        }
-        return $this->resolvedType;
+        return $this->type;
     }
 
     /**
@@ -104,5 +99,30 @@ class FieldArgument
     public function defaultValueExists()
     {
         return $this->defaultValueExists;
+    }
+
+    public function assertValid(FieldDefinition $parentField, Type $parentType)
+    {
+        try {
+            Utils::assertValidName($this->name);
+        } catch (InvariantViolation $e) {
+            throw new InvariantViolation(
+                "{$parentType->name}.{$parentField->name}({$this->name}:) {$e->getMessage()}")
+            ;
+        }
+        $type = $this->type;
+        if ($type instanceof WrappingType) {
+            $type = $type->getWrappedType(true);
+        }
+        Utils::invariant(
+            $type instanceof InputType,
+            "{$parentType->name}.{$parentField->name}({$this->name}): argument type must be " .
+            "Input Type but got: " . Utils::printSafe($this->type)
+        );
+        Utils::invariant(
+            $this->description === null || is_string($this->description),
+            "{$parentType->name}.{$parentField->name}({$this->name}): argument description type must be " .
+            "string but got: " . Utils::printSafe($this->description)
+        );
     }
 }

@@ -1,9 +1,10 @@
 <?php
 namespace GraphQL\Type\Definition;
 
-use GraphQL\Error\UserError;
+use GraphQL\Error\Error;
+use GraphQL\Error\InvariantViolation;
 use GraphQL\Language\AST\StringValueNode;
-use GraphQL\Utils;
+use GraphQL\Utils\Utils;
 
 /**
  * Class StringType
@@ -30,7 +31,19 @@ represent free-form human-readable text.';
      */
     public function serialize($value)
     {
-        return $this->parseValue($value);
+        if ($value === true) {
+            return 'true';
+        }
+        if ($value === false) {
+            return 'false';
+        }
+        if ($value === null) {
+            return 'null';
+        }
+        if (!is_scalar($value)) {
+            throw new InvariantViolation("String cannot represent non scalar value: " . Utils::printSafe($value));
+        }
+        return (string) $value;
     }
 
     /**
@@ -49,7 +62,7 @@ represent free-form human-readable text.';
             return 'null';
         }
         if (!is_scalar($value)) {
-            throw new UserError("String cannot represent non scalar value: " . Utils::printSafe($value));
+            throw new Error("String cannot represent non scalar value: " . Utils::printSafe($value));
         }
         return (string) $value;
     }

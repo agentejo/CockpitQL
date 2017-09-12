@@ -5,7 +5,7 @@ use GraphQL\Deferred;
 use GraphQL\Error\InvariantViolation;
 use GraphQL\Executor\Promise\Promise;
 use GraphQL\Executor\Promise\PromiseAdapter;
-use GraphQL\Utils;
+use GraphQL\Utils\Utils;
 
 /**
  * Class SyncPromiseAdapter
@@ -60,6 +60,8 @@ class SyncPromiseAdapter implements PromiseAdapter
             );
         } catch (\Exception $e) {
             $promise->reject($e);
+        } catch (\Throwable $e) {
+            $promise->reject($e);
         }
 
         return new Promise($promise, $this);
@@ -77,7 +79,7 @@ class SyncPromiseAdapter implements PromiseAdapter
     /**
      * @inheritdoc
      */
-    public function createRejected(\Exception $reason)
+    public function createRejected($reason)
     {
         $promise = new SyncPromise();
         return new Promise($promise->reject($reason), $this);
@@ -126,6 +128,7 @@ class SyncPromiseAdapter implements PromiseAdapter
      */
     public function wait(Promise $promise)
     {
+        $this->beforeWait($promise);
         $dfdQueue = Deferred::getQueue();
         $promiseQueue = SyncPromise::getQueue();
 
@@ -135,6 +138,7 @@ class SyncPromiseAdapter implements PromiseAdapter
         ) {
             Deferred::runQueue();
             SyncPromise::runQueue();
+            $this->onWait($promise);
         }
 
         /** @var SyncPromise $syncPromise */
@@ -147,5 +151,23 @@ class SyncPromiseAdapter implements PromiseAdapter
         }
 
         throw new InvariantViolation("Could not resolve promise");
+    }
+
+    /**
+     * Execute just before starting to run promise completion
+     *
+     * @param Promise $promise
+     */
+    protected function beforeWait(Promise $promise)
+    {
+    }
+
+    /**
+     * Execute while running promise completion
+     *
+     * @param Promise $promise
+     */
+    protected function onWait(Promise $promise)
+    {
     }
 }
