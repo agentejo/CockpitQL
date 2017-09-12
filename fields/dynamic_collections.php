@@ -93,10 +93,6 @@ foreach ($collections as $name => $meta) {
         ],
         'resolve' => function ($root, $args) use($app, $name) {
 
-            if (!$app->module('collections')->exists($name)) {
-                return '{"error": "Collection not found"}';
-            }
-
             $collection = $app->module('collections')->collection($name);
             $user = $app->module('cockpit')->getUser();
 

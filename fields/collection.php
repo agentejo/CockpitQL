@@ -22,7 +22,7 @@ return [
         $collection = $args['name'];
 
         if (!$app->module('collections')->exists($collection)) {
-            return '{"error": "Collection not found"}';
+            return [];
         }
 
         $collection = $app->module('collections')->collection($collection);
