@@ -13,7 +13,7 @@ GraphQL entry point:
   region(name:"test"),
   collection(name:"posts", filter:{published:true})
 }
-``
+```
 
 ### 💐 SPONSORED BY
 
