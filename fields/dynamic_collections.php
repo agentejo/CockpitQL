@@ -132,7 +132,7 @@ function _cockpitQLbuildFieldsDefinition($meta) {
                 break;
             case 'image':
                 $def['type'] = new ObjectType([
-                    'name' => 'asset',
+                    'name' => 'image',
                     'fields' => [
                         'path' => Type::string(),
                         'meta' => JsonType::instance()
@@ -184,6 +184,40 @@ function _cockpitQLbuildFieldsDefinition($meta) {
                         'value' => JsonType::instance()
                     ]
                 ]));
+                break;
+
+            case 'collectionlink':
+
+                $collection = cockpit('collections')->collection($field['options']['link']);
+
+                if (!$collection) {
+                    continue;
+                }
+
+                $linkType = new ObjectType([
+                    'name' => 'collection_link_'.$field['options']['link'],
+                    'fields' => function() use($collection) {
+
+                        $fields = [
+                            '_id' => Type::string(),
+                            '_created' => Type::int(),
+                            '_modified' =>Type::int()
+                        ];
+
+                        foreach ($collection['fields'] as &$field) {
+                            $fields[$field['name']] = JsonType::instance();
+                        }
+
+                        return $fields;
+                    }
+                ]);
+
+                if (isset($field['options']['multiple']) && $field['options']['multiple']) {
+                    $def['type'] = Type::listOf($linkType);
+                } else {
+                    $def['type'] = $linkType;
+                }
+
                 break;
         }
 
