@@ -15,72 +15,12 @@ foreach ($collections as $name => $meta) {
     $config['fields'][$gqlName] = [
 
         'type' => Type::listOf(new ObjectType([
-
             'name'   => $name,
             'fields' => function() use($meta) {
-
-                $fields = [
-                    '_id' => Type::string(),
-                    '_created' => Type::int(),
-                    '_modified' =>Type::int(),
-                ];
-
-                foreach ($meta['fields'] as $field) {
-
-                    $def = [];
-
-                    switch($field['type']) {
-                        case 'text':
-                        case 'textarea':
-                        case 'code':
-                        case 'code':
-                        case 'password':
-                        case 'wysiwyg':
-                        case 'markdown':
-                        case 'date':
-                        case 'time':
-                        case 'color':
-                        case 'colortag':
-                        case 'select':
-                            $def['type'] = Type::string();
-                            break;
-                        case 'boolean':
-                            $def['type'] = Type::boolean();
-                            break;
-                        case 'multipleselect':
-                        case 'access-list':
-                        case 'tags':
-                            $def['type'] = Type::listOf(Type::string());
-                            break;
-                        case 'image':
-                        case 'asset':
-                            $def['type'] = new ObjectType([
-                                'name' => 'asset',
-                                'fields' => [
-                                    'path' => Type::string()
-                                ]
-                            ]);
-                            break;
-
-                        case 'location':
-                            $def['type'] = new ObjectType([
-                                'name' => 'location',
-                                'fields' => [
-                                    'address' => Type::string(),
-                                    'lat' => Type::float(),
-                                    'lng' => Type::float()
-                                ]
-                            ]);
-                            break;
-                    }
-
-                    if(!empty($def)) $fields[$field['name']] = $def;
-                }
-
-                return $fields;
-
+                return _cpQLbuildFieldsDefinition($meta);
             }
         ])),
+
         'args' => [
             '_id'   => Type::string(),
             'limit' => Type::int(),
@@ -91,6 +31,7 @@ foreach ($collections as $name => $meta) {
             'projection' => ['type' => Type::string(), 'defaultValue' => ''],
             'filter'   => ['type' => JsonType::instance(), 'defaultValue' => '']
         ],
+
         'resolve' => function ($root, $args) use($app, $name) {
 
             $collection = $app->module('collections')->collection($name);
@@ -140,4 +81,88 @@ foreach ($collections as $name => $meta) {
             }
         }
     ];
+}
+
+
+function _cpQLbuildFieldsDefinition($meta) {
+
+    $fields = [
+        '_id' => Type::string(),
+        '_created' => Type::int(),
+        '_modified' =>Type::int(),
+    ];
+
+    foreach ($meta['fields'] as $field) {
+
+        $def = [];
+
+        switch($field['type']) {
+            case 'text':
+            case 'textarea':
+            case 'code':
+            case 'code':
+            case 'password':
+            case 'wysiwyg':
+            case 'markdown':
+            case 'date':
+            case 'file':
+            case 'time':
+            case 'color':
+            case 'colortag':
+            case 'select':
+                $def['type'] = Type::string();
+                break;
+            case 'boolean':
+                $def['type'] = Type::boolean();
+                break;
+            case 'gallery':
+                $def['type'] = Type::listOf(new ObjectType([
+                    'name' => 'gallery_image',
+                    'fields' => [
+                        'path' => Type::string(),
+                        'meta' => JsonType::instance()
+                    ]
+                ]));
+                break;
+            case 'multipleselect':
+            case 'access-list':
+            case 'tags':
+                $def['type'] = Type::listOf(Type::string());
+                break;
+            case 'image':
+                $def['type'] = new ObjectType([
+                    'name' => 'asset',
+                    'fields' => [
+                        'path' => Type::string(),
+                        'meta' => JsonType::instance()
+                    ]
+                ]);
+                break;
+            case 'asset':
+                $def['type'] = new ObjectType([
+                    'name' => 'asset',
+                    'fields' => [
+                        'path' => Type::string()
+                    ]
+                ]);
+                break;
+
+            case 'location':
+                $def['type'] = new ObjectType([
+                    'name' => 'location',
+                    'fields' => [
+                        'address' => Type::string(),
+                        'lat' => Type::float(),
+                        'lng' => Type::float()
+                    ]
+                ]);
+                break;
+        }
+
+        if (!empty($def)) {
+            $fields[$field['name']] = $def;
+        }
+    }
+
+    return $fields;
 }
