@@ -17,7 +17,12 @@ foreach ($collections as $name => $meta) {
         'type' => Type::listOf(new ObjectType([
             'name'   => $name,
             'fields' => function() use($meta) {
-                return _cpQLbuildFieldsDefinition($meta);
+
+                return array_merge([
+                    '_id' => Type::string(),
+                    '_created' => Type::int(),
+                    '_modified' =>Type::int()
+                ], _cockpitQLbuildFieldsDefinition($meta));
             }
         ])),
 
@@ -84,19 +89,15 @@ foreach ($collections as $name => $meta) {
 }
 
 
-function _cpQLbuildFieldsDefinition($meta) {
+function _cockpitQLbuildFieldsDefinition($meta) {
 
-    $fields = [
-        '_id' => Type::string(),
-        '_created' => Type::int(),
-        '_modified' =>Type::int(),
-    ];
+    $fields = [];
 
     foreach ($meta['fields'] as $field) {
 
         $def = [];
 
-        switch($field['type']) {
+        switch ($field['type']) {
             case 'text':
             case 'textarea':
             case 'code':
@@ -142,7 +143,12 @@ function _cpQLbuildFieldsDefinition($meta) {
                 $def['type'] = new ObjectType([
                     'name' => 'asset',
                     'fields' => [
-                        'path' => Type::string()
+                        '_id' => Type::string(),
+                        'title' => Type::string(),
+                        'path' => Type::string(),
+                        'mime' => Type::string(),
+                        'tags' => Type::listOf(Type::string()),
+                        'colors' => Type::listOf(Type::string()),
                     ]
                 ]);
                 break;
@@ -156,6 +162,28 @@ function _cpQLbuildFieldsDefinition($meta) {
                         'lng' => Type::float()
                     ]
                 ]);
+                break;
+
+            case 'layout':
+            case 'layout-grid':
+                $def['type'] = JsonType::instance();
+                break;
+
+            case 'set':
+                $def['type'] = new ObjectType([
+                    'name' => 'set_'.$field['name'],
+                    'fields' => _cockpitQLbuildFieldsDefinition($field['options'])
+                ]);
+                break;
+
+            case 'repeater':
+
+                $def['type'] = Type::listOf(new ObjectType([
+                    'name' => 'repeater_item',
+                    'fields' => [
+                        'value' => JsonType::instance()
+                    ]
+                ]));
                 break;
         }
 

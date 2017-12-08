@@ -3,6 +3,7 @@ namespace GraphQL\Type;
 
 use GraphQL\Error\InvariantViolation;
 use GraphQL\GraphQL;
+use GraphQL\Language\AST\SchemaDefinitionNode;
 use GraphQL\Type\Definition\FieldArgument;
 use GraphQL\Type\Definition\NonNull;
 use GraphQL\Type\Definition\AbstractType;
@@ -109,7 +110,6 @@ class Schema
         );
 
         $this->config = $config;
-        $this->resolvedTypes = Type::getInternalTypes() + Introspection::getTypes();
         $this->resolvedTypes[$config->query->name] = $config->query;
 
         if ($config->mutation) {
@@ -118,6 +118,20 @@ class Schema
         if ($config->subscription) {
             $this->resolvedTypes[$config->subscription->name] = $config->subscription;
         }
+        if (is_array($this->config->types)) {
+            foreach ($this->resolveAdditionalTypes() as $type) {
+                if (isset($this->resolvedTypes[$type->name])) {
+                    Utils::invariant(
+                        $type === $this->resolvedTypes[$type->name],
+                        "Schema must contain unique named types but contains multiple types named \"$type\" ".
+                        "(see http://webonyx.github.io/graphql-php/type-system/#type-registry)."
+                    );
+                }
+                $this->resolvedTypes[$type->name] = $type;
+            }
+        }
+        $this->resolvedTypes += Type::getInternalTypes() + Introspection::getTypes();
+
         if (!$this->config->typeLoader) {
             // Perform full scan of the schema
             $this->getTypeMap();
@@ -208,8 +222,11 @@ class Schema
         foreach ($this->resolvedTypes as $type) {
             $typeMap = TypeInfo::extractTypes($type, $typeMap);
         }
-        foreach ($this->resolveAdditionalTypes() as $type) {
-            $typeMap = TypeInfo::extractTypes($type, $typeMap);
+        // When types are set as array they are resolved in constructor
+        if (is_callable($this->config->types)) {
+            foreach ($this->resolveAdditionalTypes() as $type) {
+                $typeMap = TypeInfo::extractTypes($type, $typeMap);
+            }
         }
         return $typeMap;
     }
@@ -355,6 +372,14 @@ class Schema
             }
         }
         return null;
+    }
+
+    /**
+     * @return SchemaDefinitionNode
+     */
+    public function getAstNode()
+    {
+        return $this->config->getAstNode();
     }
 
     /**
