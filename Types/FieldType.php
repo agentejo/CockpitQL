@@ -19,7 +19,6 @@ class FieldType {
 
             $def = self::getType($field);
 
-
             if ($def) {
                 $fields[$field['name']] = $def;
             }

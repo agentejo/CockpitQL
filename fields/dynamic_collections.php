@@ -9,11 +9,11 @@ $collections = cockpit('collections')->collections();
 
 foreach ($collections as $name => $meta) {
 
-    $gqlName = "all".ucfirst($name);
+    $_name = "all".ucfirst($name);
 
-    if (strpos($query, $gqlName) === false) continue;
+    if (strpos($query, $_name) === false) continue;
 
-    $config['fields'][$gqlName] = [
+    $config['fields'][$_name] = [
 
         'type' => Type::listOf(new ObjectType([
             'name'   => $name,
