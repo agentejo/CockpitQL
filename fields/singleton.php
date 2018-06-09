@@ -4,7 +4,7 @@ use GraphQL\Type\Definition\Type;
 use CockpitQL\Types\JsonType;
 
 return [
-    'type' => Type::string(),
+    'type' => JsonType::instance(),
     'args' => [
         'name' => Type::nonNull(Type::string()),
         'options' => JsonType::instance(),

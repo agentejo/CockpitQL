@@ -6,7 +6,7 @@ spl_autoload_register(function($class){
 });
 
 use GraphQL\GraphQL;
-use GraphQL\Schema;
+use GraphQL\Type\Schema;
 use GraphQL\Type\Definition\ObjectType;
 use GraphQL\Type\Definition\Type;
 
@@ -41,7 +41,7 @@ if (COCKPIT_API_REQUEST) {
             try {
 
                 $rootValue = [];
-                $result = GraphQL::execute($schema, $query, $rootValue, null, $variableValues);
+                $result = GraphQL::executeQuery($schema, $query, $rootValue, null, $variableValues)->toArray();
 
                 if (isset($result['data'])) {
 
