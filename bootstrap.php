@@ -24,6 +24,7 @@ if (COCKPIT_API_REQUEST) {
                 'name' => 'Query',
                 'fields' => [
                     'region' => include(__DIR__.'/fields/region.php'),
+                    'singleton' => include(__DIR__.'/fields/singleton.php'),
                     'collection' => include(__DIR__.'/fields/collection.php')
                 ]
             ]);
