@@ -4,7 +4,8 @@ use GraphQL\Type\Definition\Type;
 use CockpitQL\Types\JsonType;
 
 
-return [
+$config['fields']['collection'] = [
+    
     'type' => Type::listOf(JsonType::instance()),
     'args' => [
         'name'  => Type::nonNull(Type::string()),

@@ -3,7 +3,8 @@
 use GraphQL\Type\Definition\Type;
 use CockpitQL\Types\JsonType;
 
-return [
+$config['fields']['singleton'] =  [
+    
     'type' => JsonType::instance(),
     'args' => [
         'name' => Type::nonNull(Type::string()),

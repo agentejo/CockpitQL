@@ -11,8 +11,6 @@ foreach ($collections as $name => $meta) {
 
     $_name = "all".ucfirst($name);
 
-    if (strpos($query, $_name) === false) continue;
-
     $config['fields'][$_name] = [
 
         'type' => Type::listOf(new ObjectType([
