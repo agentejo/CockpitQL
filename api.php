@@ -23,7 +23,8 @@ $app->on('cockpit.rest.init', function($routes) use($app) {
             'region', // deprecated and will be removed in the future
             'collection',
             'singleton',
-            'dynamic_collections'
+            'dynamic_collections',
+            'dynamic_singletons',
         ] as $fieldSchemaFile) {
             include(__DIR__."/fields/{$fieldSchemaFile}.php");
         }

@@ -14,7 +14,7 @@ foreach ($collections as $name => $meta) {
     $config['fields'][$_name] = [
 
         'type' => Type::listOf(new ObjectType([
-            'name'   => $name,
+            'name'   => $_name,
             'fields' => function() use($meta) {
 
                 return array_merge([
