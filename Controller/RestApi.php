@@ -9,6 +9,6 @@ class RestApi extends \LimeExtra\Controller {
         $query = $this->param('query', '{}');
         $variables = $this->param('variables', null);
     
-        return \CockpitQL\Query::process($query, $variables);
+        return $this->module('cockpitql')->query($query, $variables);
     }
 }
