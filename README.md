@@ -3,7 +3,7 @@
 GraphQL entry point:
 
 ```
-/api/graphql?token=*apitoken*
+/api/graphql/query?token=*apitoken*
 ```
 
 # Example query:

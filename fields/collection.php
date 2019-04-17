@@ -5,7 +5,7 @@ use CockpitQL\Types\JsonType;
 
 
 $config['fields']['collection'] = [
-    
+
     'type' => Type::listOf(JsonType::instance()),
     'args' => [
         'name'  => Type::nonNull(Type::string()),

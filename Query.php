@@ -1,19 +1,18 @@
 <?php
 
+namespace CockpitQL;
+
 use GraphQL\GraphQL;
 use GraphQL\Type\Schema;
 use GraphQL\Type\Definition\ObjectType;
 use GraphQL\Type\Definition\Type;
 
+class Query {
 
-$app->on('cockpit.rest.init', function($routes) use($app) {
+    public static function process($query = '{}', $variables = null) {
 
-    $routes['graphql'] = function() use($app) {
-
-        $query = $app->param('query', '{}');
-        $variableValues = $app->param('variables', null);
-
-        $config = new ArrayObject([
+        $app = cockpit();
+        $config = new \ArrayObject([
             'name' => 'Query',
             'fields' => []
         ]);
@@ -39,7 +38,7 @@ $app->on('cockpit.rest.init', function($routes) use($app) {
         try {
 
             $rootValue = [];
-            $result = GraphQL::executeQuery($schema, $query, $rootValue, null, $variableValues)->toArray();
+            $result = GraphQL::executeQuery($schema, $query, $rootValue, null, $variables)->toArray();
 
             if (isset($result['data'])) {
 
@@ -64,5 +63,5 @@ $app->on('cockpit.rest.init', function($routes) use($app) {
         }
 
         return $result;
-    };
-});
+    }
+}
