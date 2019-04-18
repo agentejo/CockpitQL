@@ -14,3 +14,7 @@
     });
 
 </script>
+
+<style>
+    body { padding: 0; }
+</style>
