@@ -10,7 +10,6 @@ GraphQL entry point:
 
 ```
 {
-  region(name:"test"),
   collection(name:"posts", filter:{published:true})
 }
 ```
@@ -19,7 +18,7 @@ Assume we have a collection named `posts`, you can also query like this
 
 ```
 {
-  allPosts(filter:{published:true}){
+  postsCollection(filter:{published:true}){
     _id,
     title
     content,

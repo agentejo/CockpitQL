@@ -8,9 +8,9 @@ use CockpitQL\Types\FieldType;
 
 $singletons = cockpit('singletons')->singletons();
 
-foreach ($singletons as $name => $meta) {
+foreach ($singletons as $name => &$meta) {
 
-    $_name = "singleton".ucfirst($name);
+    $_name = $name.'singleton';
 
     $config['fields'][$_name] = [
 

@@ -7,9 +7,9 @@ use CockpitQL\Types\FieldType;
 
 $collections = cockpit('collections')->collections();
 
-foreach ($collections as $name => $meta) {
+foreach ($collections as $name => &$meta) {
 
-    $_name = "all".ucfirst($name);
+    $_name = $name.'Collection';
 
     $config['fields'][$_name] = [
 
