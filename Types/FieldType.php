@@ -127,7 +127,7 @@ class FieldType {
                 $collection = cockpit('collections')->collection($field['options']['link']);
 
                 if (!$collection) {
-                    continue;
+                    break;
                 }
 
                 $linkType = new ObjectType([
