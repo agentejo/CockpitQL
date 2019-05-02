@@ -27,9 +27,38 @@ class FieldType {
         return $fields;
     }
 
+    protected static function collectionLinkFieldType($name, $field, $collection) {
+
+        $typeName = "{$name}CollectionLink";
+
+        if (!isset(self::$types[$typeName])) {
+
+            $linkType = new ObjectType([
+                'name' => $typeName,
+                'fields' => function() use($collection) {
+
+                    $fields = [
+                        '_id' => Type::nonNull(Type::string()),
+                        '_created' => Type::nonNull(Type::int()),
+                        '_modified' => Type::nonNull(Type::int())
+                    ];
+
+                    foreach ($collection['fields'] as &$field) {
+                        $fields[$field['name']] = JsonType::instance();
+                    }
+
+                    return $fields;
+                }
+            ]);
+
+            self::$types[$typeName] = $linkType;
+        }
+
+        return self::$types[$typeName];
+    }
+
 
     protected static function getType($field) {
-
 
         $def = [];
 
@@ -47,7 +76,13 @@ class FieldType {
             case 'color':
             case 'colortag':
             case 'select':
-                $def['type'] = Type::string();
+
+                if ($field['type'] == 'text' && isset($field['options']['type']) && $field['options']['type'] == 'number') {
+                    $def['type'] = Type::int();
+                } else {
+                    $def['type'] = Type::string();
+                }
+
                 break;
             case 'boolean':
                 $def['type'] = Type::boolean();
@@ -107,19 +142,35 @@ class FieldType {
 
             case 'set':
                 $def['type'] = new ObjectType([
-                    'name' => uniqid('set_'.$field['name']),
+                    'name' => 'Set'.ucfirst($field['name']),
                     'fields' => self::buildFieldsDefinitions($field['options'])
                 ]);
                 break;
 
             case 'repeater':
 
-                $def['type'] = Type::listOf(new ObjectType([
-                    'name' => uniqid('repeater_item'),
-                    'fields' => [
-                        'value' => JsonType::instance()
-                    ]
-                ]));
+                if (isset($field['options']['field'])) {
+
+                    $field['options']['field']['name'] = 'RepeaterItemValue'.ucfirst($field['name']);
+
+                    $typeRepeater = new ObjectType([
+                        'name' => 'RepeaterItem'.ucfirst($field['name']),
+                        'fields' => [
+                            'value' => self::getType($field['options']['field'])
+                        ]
+                    ]);
+
+                } else {
+
+                    $typeRepeater = new ObjectType([
+                        'name' => 'RepeaterItem'.ucfirst($field['name']),
+                        'fields' => [
+                            'value' => JsonType::instance()
+                        ]
+                    ]);
+                }
+
+                $def['type'] = Type::listOf($typeRepeater);
                 break;
 
             case 'collectionlink':
@@ -130,31 +181,19 @@ class FieldType {
                     break;
                 }
 
-                $linkType = new ObjectType([
-                    'name' => uniqid('collection_link_'.$field['options']['link']),
-                    'fields' => function() use($collection) {
-
-                        $fields = [
-                            '_id' => Type::string(),
-                            '_created' => Type::int(),
-                            '_modified' =>Type::int()
-                        ];
-
-                        foreach ($collection['fields'] as &$field) {
-                            $fields[$field['name']] = JsonType::instance();
-                        }
-
-                        return $fields;
-                    }
-                ]);
+                $linkType = self::collectionLinkFieldType($field['options']['link'], $field, $collection);
 
                 if (isset($field['options']['multiple']) && $field['options']['multiple']) {
-                    $def['type'] = Type::listOf($linkType);
+                    $def['type'] =  Type::listOf($linkType);
                 } else {
                     $def['type'] = $linkType;
                 }
 
                 break;
+        }
+
+        if (isset($def['type'], $field['required']) && $field['required']) {
+            $def['type'] = Type::nonNull($def['type']);
         }
 
         return count($def) ? $def : null;

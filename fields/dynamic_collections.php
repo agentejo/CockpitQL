@@ -18,9 +18,9 @@ foreach ($collections as $name => &$meta) {
             'fields' => function() use($meta) {
 
                 return array_merge([
-                    '_id' => Type::string(),
-                    '_created' => Type::int(),
-                    '_modified' =>Type::int()
+                    '_id'       => Type::nonNull(Type::string()),
+                    '_created'  => Type::nonNull(Type::int()),
+                    '_modified' => Type::nonNull(Type::int())
                 ], FieldType::buildFieldsDefinitions($meta));
             }
         ])),
