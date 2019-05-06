@@ -15,13 +15,17 @@ foreach ($collections as $name => &$meta) {
 
         'type' => Type::listOf(new ObjectType([
             'name'   => $_name,
-            'fields' => function() use($meta) {
+            'fields' => function() use($meta, $app, $_name) {
 
-                return array_merge([
+                $fields = array_merge([
                     '_id'       => Type::nonNull(Type::string()),
                     '_created'  => Type::nonNull(Type::int()),
                     '_modified' => Type::nonNull(Type::int())
                 ], FieldType::buildFieldsDefinitions($meta));
+
+                $app->trigger("cockpitql.{$_name}.fields", [&$fields]);
+
+                return $fields;
             }
         ])),
 

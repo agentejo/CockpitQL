@@ -10,19 +10,23 @@ $singletons = cockpit('singletons')->singletons();
 
 foreach ($singletons as $name => &$meta) {
 
-    $_name = $name.'singleton';
+    $_name = $name.'Singleton';
 
     $config['fields'][$_name] = [
 
         'type' => new ObjectType([
             'name'   => $_name,
-            'fields' => function() use($meta) {
+            'fields' => function() use($meta, $app, $_name) {
 
-                return array_merge([
+                $fields = array_merge([
                     '_id' => Type::string(),
                     '_created' => Type::int(),
                     '_modified' =>Type::int()
                 ], FieldType::buildFieldsDefinitions($meta));
+
+                $app->trigger("cockpitql.{$_name}.fields", [&$fields]);
+
+                return $fields;
             }
         ]),
 
