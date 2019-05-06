@@ -9,7 +9,20 @@ use CockpitQL\Types\JsonType;
 class FieldType {
 
     protected static $types = [];
+    protected static $names = [];
 
+
+    private static function getName($name) {
+
+        if (!isset(self::$names[$name])) {
+            self::$names[$name] = 0;
+        } else {
+            self::$names[$name]++;
+            $name .= self::$names[$name];
+        }
+
+        return $name;
+    }
 
     public static function buildFieldsDefinitions($meta) {
 
@@ -20,7 +33,12 @@ class FieldType {
             $def = self::getType($field);
 
             if ($def) {
+                
                 $fields[$field['name']] = $def;
+
+                if ($field['type'] == 'text' && isset($field['options']['slug']) && $field['options']['slug']) {
+                    $fields[$field['name'].'_slug'] = Type::string();
+                }
             }
         }
 
@@ -142,7 +160,7 @@ class FieldType {
 
             case 'set':
                 $def['type'] = new ObjectType([
-                    'name' => 'Set'.ucfirst($field['name']),
+                    'name' => self::getName('Set'.ucfirst($field['name'])),
                     'fields' => self::buildFieldsDefinitions($field['options'])
                 ]);
                 break;
@@ -154,7 +172,7 @@ class FieldType {
                     $field['options']['field']['name'] = 'RepeaterItemValue'.ucfirst($field['name']);
 
                     $typeRepeater = new ObjectType([
-                        'name' => 'RepeaterItem'.ucfirst($field['name']),
+                        'name' => self::getName('RepeaterItem'.ucfirst($field['name'])),
                         'fields' => [
                             'value' => self::getType($field['options']['field'])
                         ]
@@ -163,7 +181,7 @@ class FieldType {
                 } else {
 
                     $typeRepeater = new ObjectType([
-                        'name' => 'RepeaterItem'.ucfirst($field['name']),
+                        'name' => self::getName('RepeaterItem'.ucfirst($field['name'])),
                         'fields' => [
                             'value' => JsonType::instance()
                         ]
