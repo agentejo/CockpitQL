@@ -105,6 +105,9 @@ class FieldType {
             case 'boolean':
                 $def['type'] = Type::boolean();
                 break;
+            case 'rating':
+                $def['type'] = Type::int();
+                break;
             case 'gallery':
                 $def['type'] = Type::listOf(new ObjectType([
                     'name' => uniqid('gallery_image'),
