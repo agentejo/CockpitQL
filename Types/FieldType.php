@@ -2,9 +2,8 @@
 
 namespace CockpitQL\Types;
 
-use GraphQL\Type\Definition\Type;
 use GraphQL\Type\Definition\ObjectType;
-use CockpitQL\Types\JsonType;
+use GraphQL\Type\Definition\Type;
 
 class FieldType {
 
@@ -55,15 +54,11 @@ class FieldType {
                 'name' => $typeName,
                 'fields' => function() use($collection) {
 
-                    $fields = [
+                    $fields = array_merge([
                         '_id' => Type::nonNull(Type::string()),
                         '_created' => Type::nonNull(Type::int()),
                         '_modified' => Type::nonNull(Type::int())
-                    ];
-
-                    foreach ($collection['fields'] as &$field) {
-                        $fields[$field['name']] = JsonType::instance();
-                    }
+                    ], FieldType::buildFieldsDefinitions($collection));
 
                     return $fields;
                 }
@@ -206,8 +201,33 @@ class FieldType {
 
                 if (isset($field['options']['multiple']) && $field['options']['multiple']) {
                     $def['type'] =  Type::listOf($linkType);
+                    $def['args'] = [
+                        'limit' => Type::int(),
+                        'skip' => Type::int(),
+                        'sort' => JsonType::instance(),
+                    ];
+                    $def['resolve'] = function ($root, $args) use ($field) {
+                        $options = [
+                            'filter' => [
+                                '_id' => [
+                                    '$in' => array_column($root[$field['name']], '_id')
+                                ]
+                            ]
+                        ];
+
+                        if (isset($args['limit'])) $options['limit'] = $args['limit'];
+                        if (isset($args['skip'])) $options['skip'] = $args['skip'];
+                        if (isset($args['sort'])) $options['sort'] = $args['sort'];
+
+                        return cockpit('collections')->find($field['options']['link'], $options);
+                    };
                 } else {
                     $def['type'] = $linkType;
+                    $def['resolve'] = function ($root) use ($field) {
+                        return cockpit('collections')->findOne($field['options']['link'], [
+                            '_id' => $root[$field['name']]['_id']
+                        ]);
+                    };
                 }
 
                 break;
