@@ -94,6 +94,7 @@ class FieldType {
             case 'color':
             case 'colortag':
             case 'select':
+            case 'html':
 
                 if ($field['type'] == 'text' && isset($field['options']['type']) && $field['options']['type'] == 'number') {
                     $def['type'] = Type::int();
