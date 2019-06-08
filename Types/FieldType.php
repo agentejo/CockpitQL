@@ -207,6 +207,8 @@ class FieldType {
                         'sort' => JsonType::instance(),
                     ];
                     $def['resolve'] = function ($root, $args) use ($field) {
+                        if (!is_array($root[$field['name']])) return [];
+
                         $options = [
                             'filter' => [
                                 '_id' => [
