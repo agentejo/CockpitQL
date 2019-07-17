@@ -1,3 +1,23 @@
+# Installation
+
+Via Cockpit CLI (Cockpit 0.9.1 or greater):
+```
+./cp install/addon --name CockpitQL
+```
+
+Manually:
+- download the repository;
+- add it as a subfolder to the `./addons` directory.
+
+Either way, the final tree should look as follows:
+```
+user@pc:/path/to/cockpit/folder$ tree -d -L 2 -n
+.
+├── addons
+│   └── CockpitQL
+...
+```
+
 # Api
 
 GraphQL entry point:
