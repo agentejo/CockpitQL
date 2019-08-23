@@ -3,7 +3,7 @@
 use GraphQL\Type\Definition\Type;
 use CockpitQL\Types\JsonType;
 
-$config['fields']['region'] = [
+$queries['fields']['region'] = [
     
     'type' => Type::string(),
     'args' => [
