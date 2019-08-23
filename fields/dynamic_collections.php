@@ -64,29 +64,23 @@ foreach ($collections as $name => &$meta) {
                 $filter['user'] = $user;
             }
 
-            if (isset($args['_id']) && $args['_id']) {
+            $options['fieldsFilter'] = $filter;
 
-                return json_encode(cockpit('collections')->findOne($args['name'], [
-                    '_id' => $args['_id']
-                ], null, $populate, $filter));
+            $options['populate'] = $populate;
 
-            } else {
+            if (isset($args['limit'])) $options['limit'] = $args['limit'];
+            if (isset($args['skip'])) $options['skip'] = $args['skip'];
 
-                $options['populate'] = $populate;
-
-                if (isset($args['limit'])) $options['limit'] = $args['limit'];
-                if (isset($args['skip'])) $options['skip'] = $args['skip'];
-
-                if (isset($args['sort'])) {
-                    $options['sort'] = $args['sort'];
-                }
-
-                if ($args['filter']) {
-                    $options['filter'] = $args['filter'];
-                }
-
-                return cockpit('collections')->find($name, $options);
+            if (isset($args['sort'])) {
+                $options['sort'] = $args['sort'];
             }
+
+            if (isset($args['_id']) && $args['_id']) {
+                $options['filter'] = ['_id' => $args['_id']];
+            } else if ($args['filter']) {
+                $options['filter'] = $args['filter'];
+            }
+            return cockpit('collections')->find($name, $options);
         }
     ];
 }
