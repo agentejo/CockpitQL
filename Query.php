@@ -12,10 +12,9 @@ class Query {
     public static function process($query = '{}', $variables = null) {
 
         $app = cockpit();
-        $config = new \ArrayObject([
-            'name' => 'Query',
-            'fields' => []
-        ]);
+        $queries = new \ArrayObject(['name' => 'Query', 'fields' => []]);
+        $mutations = new \ArrayObject(['name' => 'Mutation', 'fields' => []]);
+
 
         // load field schema defenitions
         foreach ([
@@ -28,11 +27,14 @@ class Query {
             include(__DIR__."/fields/{$fieldSchemaFile}.php");
         }
 
-        $app->trigger('cockpitql.config', [$config]);
+        $app->trigger('cockpitql.config', [$queries, $mutations]);
 
-        $queryType = new ObjectType($config->getArrayCopy());
+        $queryType = new ObjectType($queries->getArrayCopy());
+        $mutationType = new ObjectType($mutations->getArrayCopy());
+
         $schema = new Schema([
-            'query' => $queryType
+            'query' => $queryType,
+            'mutation' => $mutationType,
         ]);
 
         try {

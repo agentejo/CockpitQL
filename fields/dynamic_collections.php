@@ -11,7 +11,7 @@ foreach ($collections as $name => &$meta) {
 
     $_name = $name.'Collection';
 
-    $config['fields'][$_name] = [
+    $queries['fields'][$_name] = [
 
         'type' => Type::listOf(new ObjectType([
             'name'   => $_name,
@@ -65,7 +65,6 @@ foreach ($collections as $name => &$meta) {
             }
 
             $options['fieldsFilter'] = $filter;
-
             $options['populate'] = $populate;
 
             if (isset($args['limit'])) $options['limit'] = $args['limit'];
@@ -77,9 +76,10 @@ foreach ($collections as $name => &$meta) {
 
             if (isset($args['_id']) && $args['_id']) {
                 $options['filter'] = ['_id' => $args['_id']];
-            } else if ($args['filter']) {
+            } else if (isset($args['filter']) && $args['filter']) {
                 $options['filter'] = $args['filter'];
             }
+
             return cockpit('collections')->find($name, $options);
         }
     ];

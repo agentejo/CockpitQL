@@ -12,7 +12,7 @@ foreach ($singletons as $name => &$meta) {
 
     $_name = $name.'Singleton';
 
-    $config['fields'][$_name] = [
+    $queries['fields'][$_name] = [
 
         'type' => new ObjectType([
             'name'   => $_name,
