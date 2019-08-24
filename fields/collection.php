@@ -1,6 +1,7 @@
 <?php
 
 use GraphQL\Type\Definition\Type;
+use GraphQL\Type\Definition\ObjectType;
 use CockpitQL\Types\JsonType;
 
 
@@ -32,7 +33,7 @@ $queries['fields']['collection'] = [
         if ($user) {
 
             if (!$app->module('collections')->hasaccess($collection['name'], 'entries_view')) {
-                return '{"error": "Unauthorized"}';
+                $app->stop(['error'=> 'Unauthorized'], 401);
             }
         }
 
@@ -73,4 +74,45 @@ $queries['fields']['collection'] = [
         }
 
     }
+];
+
+$mutations['fields']['saveCollectionItem'] = [
+    'args' => [
+        'name' => Type::nonNull(Type::string()),
+        'data' => Type::nonNull(JsonType::instance()),
+        'options' => JsonType::instance(),
+    ],
+    'type' => new ObjectType([
+        'name' => 'saveCollectionItemOutput',
+        'fields' => [
+            'data' => ['type' => JsonType::instance()]
+        ]
+    ]),
+    'resolve' => function ($root, $args) use($app) {
+        
+        $name = $args['name'];
+        $data = $args['data'];
+        $options = $args['options'] ?? [];
+
+        if (!$app->module('collections')->exists($name)) {
+            $app->stop(['error'=> "Collection <{$name}> does not exist!"], 404);
+        }
+
+        $collection = $app->module('collections')->collection($name);
+        $user = $app->module('cockpit')->getUser();
+
+        if ($user) {
+
+            if (!$app->module('collections')->hasaccess($collection['name'], isset($data['_id']) ? 'entries_edit':'entries_create')) {
+                $app->stop(['error'=> 'Unauthorized'], 401);
+            }
+
+        } else {
+            $app->stop(['error'=> 'Unauthorized'], 401);
+        }
+
+        $data = $app->module('collections')->save($name, $data, $options);
+
+        return compact('data');
+    },
 ];

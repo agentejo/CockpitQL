@@ -48,7 +48,7 @@ foreach ($collections as $name => &$meta) {
             if ($user) {
 
                 if (!$app->module('collections')->hasaccess($collection['name'], 'entries_view')) {
-                    return '{"error": "Unauthorized"}';
+                    $app->stop(['error'=> 'Unauthorized'], 401);
                 }
             }
 

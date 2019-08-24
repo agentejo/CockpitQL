@@ -43,7 +43,7 @@ foreach ($singletons as $name => &$meta) {
             if ($user) {
 
                 if (!$app->module('singletons')->hasaccess($singleton['name'], 'data')) {
-                    return '{"error": "Unauthorized"}';
+                    $app->stop(['error'=> 'Unauthorized'], 401);
                 }
             }
 

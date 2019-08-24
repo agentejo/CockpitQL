@@ -15,7 +15,7 @@ $app->on('admin.init', function() {
     // bind admin routes /singleton/*
     $this->bindClass('CockpitQL\\Controller\\Admin', 'cockpitql');
 
-    $this->on('cockpit.menu.aside', function() {
+    $this->on(['cockpit.menu', 'cockpit.menu.aside'], function() {
         $this->renderView("cockpitql:views/partials/menu.php");
     });
 
