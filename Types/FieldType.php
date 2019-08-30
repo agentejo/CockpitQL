@@ -199,7 +199,13 @@ class FieldType {
                 }
 
                 $linkType = self::collectionLinkFieldType($field['options']['link'], $field, $collection);
-                $def['type'] = $linkType;
+                $isMultiple = isset($field['options']['multiple']) && $field['options']['multiple'];
+                $def['type'] = $isMultiple ? Type::listOf($linkType) : $linkType;
+                if ($isMultiple) {
+                    $def['resolve'] = function ($root, $args) use ($field) {
+                        if (!is_array($root[$field['name']])) return [];
+                    };
+                }
                 break;
         }
 
