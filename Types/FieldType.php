@@ -204,6 +204,7 @@ class FieldType {
                 if ($isMultiple) {
                     $def['resolve'] = function ($root, $args) use ($field) {
                         if (!is_array($root[$field['name']])) return [];
+                        return $root[$field['name']];
                     };
                 }
                 break;
