@@ -4,7 +4,6 @@ use GraphQL\Type\Definition\Type;
 use GraphQL\Type\Definition\ObjectType;
 use CockpitQL\Types\JsonType;
 
-
 $queries['fields']['collection'] = [
 
     'type' => Type::listOf(JsonType::instance()),

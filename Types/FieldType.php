@@ -208,6 +208,9 @@ class FieldType {
                     };
                 }
                 break;
+
+            default:
+                cockpit()->trigger("cockpitql.type.{$field['type']}", [$field, &$def]);
         }
 
         if (isset($def['type'], $field['required']) && $field['required']) {
