@@ -14,7 +14,8 @@ class Query {
         $app = cockpit();
         $queries = new \ArrayObject(['name' => 'Query', 'fields' => []]);
         $mutations = new \ArrayObject(['name' => 'Mutation', 'fields' => []]);
-
+        $types = new \ArrayObject([]);
+        $directives = new \ArrayObject(GraphQL::getStandardDirectives());
 
         // load field schema defenitions
         foreach ([
@@ -27,7 +28,7 @@ class Query {
             include(__DIR__."/fields/{$fieldSchemaFile}.php");
         }
 
-        $app->trigger('cockpitql.config', [$queries, $mutations]);
+        $app->trigger('cockpitql.config', [$queries, $mutations, $types, $directives]);
 
         $queryType = new ObjectType($queries->getArrayCopy());
         $mutationType = new ObjectType($mutations->getArrayCopy());
@@ -35,6 +36,8 @@ class Query {
         $schema = new Schema([
             'query' => $queryType,
             'mutation' => $mutationType,
+            'types' => $types->getArrayCopy(),
+            'directives' => $directives->getArrayCopy(),
         ]);
 
         try {
