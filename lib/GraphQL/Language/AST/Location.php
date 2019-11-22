@@ -59,6 +59,7 @@ class Location
         $tmp        = new static();
         $tmp->start = $start;
         $tmp->end   = $end;
+
         return $tmp;
     }
 
@@ -68,7 +69,7 @@ class Location
         $this->endToken   = $endToken;
         $this->source     = $source;
 
-        if (! $startToken || ! $endToken) {
+        if ($startToken === null || $endToken === null) {
             return;
         }
 

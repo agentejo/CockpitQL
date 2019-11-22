@@ -5,22 +5,35 @@ declare(strict_types=1);
 namespace GraphQL\Validator\Rules;
 
 use GraphQL\Error\Error;
+use GraphQL\Language\AST\NameNode;
 use GraphQL\Language\AST\NodeKind;
 use GraphQL\Language\AST\ObjectFieldNode;
 use GraphQL\Language\Visitor;
+use GraphQL\Validator\ASTValidationContext;
+use GraphQL\Validator\SDLValidationContext;
 use GraphQL\Validator\ValidationContext;
 use function array_pop;
 use function sprintf;
 
 class UniqueInputFieldNames extends ValidationRule
 {
-    /** @var string[] */
+    /** @var array<string, NameNode> */
     public $knownNames;
 
-    /** @var string[][] */
+    /** @var array<array<string, NameNode>> */
     public $knownNameStack;
 
     public function getVisitor(ValidationContext $context)
+    {
+        return $this->getASTVisitor($context);
+    }
+
+    public function getSDLVisitor(SDLValidationContext $context)
+    {
+        return $this->getASTVisitor($context);
+    }
+
+    public function getASTVisitor(ASTValidationContext $context)
     {
         $this->knownNames     = [];
         $this->knownNameStack = [];

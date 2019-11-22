@@ -27,7 +27,6 @@ use GraphQL\Utils\Utils;
 use function array_filter;
 use function array_key_exists;
 use function array_values;
-use function in_array;
 use function is_bool;
 use function method_exists;
 use function trigger_error;
@@ -39,7 +38,7 @@ class Introspection
     const TYPE_FIELD_NAME      = '__type';
     const TYPE_NAME_FIELD_NAME = '__typename';
 
-    /** @var Type[] */
+    /** @var array<string, mixed> */
     private static $map = [];
 
     /**
@@ -284,8 +283,18 @@ EOD;
                                 }
                             },
                         ],
-                        'name'          => ['type' => Type::string()],
-                        'description'   => ['type' => Type::string()],
+                        'name'          => [
+                            'type' => Type::string(),
+                            'resolve' => static function ($obj) {
+                                return $obj->name;
+                            },
+                        ],
+                        'description'   => [
+                            'type' => Type::string(),
+                            'resolve' => static function ($obj) {
+                                return $obj->description;
+                            },
+                        ],
                         'fields'        => [
                             'type'    => Type::listOf(Type::nonNull(self::_field())),
                             'args'    => [
@@ -440,8 +449,18 @@ EOD;
                     'which has a name, potentially a list of arguments, and a return type.',
                 'fields'          => static function () {
                     return [
-                        'name'              => ['type' => Type::nonNull(Type::string())],
-                        'description'       => ['type' => Type::string()],
+                        'name'              => [
+                            'type' => Type::nonNull(Type::string()),
+                            'resolve' => static function (FieldDefinition $field) {
+                                return $field->name;
+                            },
+                        ],
+                        'description'       => [
+                            'type' => Type::string(),
+                            'resolve' => static function (FieldDefinition $field) {
+                                return $field->description;
+                            },
+                        ],
                         'args'              => [
                             'type'    => Type::nonNull(Type::listOf(Type::nonNull(self::_inputValue()))),
                             'resolve' => static function (FieldDefinition $field) {
@@ -461,7 +480,10 @@ EOD;
                             },
                         ],
                         'deprecationReason' => [
-                            'type' => Type::string(),
+                            'type'    => Type::string(),
+                            'resolve' => static function (FieldDefinition $field) {
+                                return $field->deprecationReason;
+                            },
                         ],
                     ];
                 },
@@ -483,12 +505,30 @@ EOD;
                     'and optionally a default value.',
                 'fields'          => static function () {
                     return [
-                        'name'         => ['type' => Type::nonNull(Type::string())],
-                        'description'  => ['type' => Type::string()],
+                        'name'         => [
+                            'type' => Type::nonNull(Type::string()),
+                            'resolve' => static function ($inputValue) {
+                                /** @var FieldArgument|InputObjectField $inputValue */
+                                $inputValue = $inputValue;
+
+                                return $inputValue->name;
+                            },
+                        ],
+                        'description'  => [
+                            'type' => Type::string(),
+                            'resolve' => static function ($inputValue) {
+                                /** @var FieldArgument|InputObjectField $inputValue */
+                                $inputValue = $inputValue;
+
+                                return $inputValue->description;
+                            },
+                        ],
                         'type'         => [
                             'type'    => Type::nonNull(self::_type()),
                             'resolve' => static function ($value) {
-                                return method_exists($value, 'getType') ? $value->getType() : $value->type;
+                                return method_exists($value, 'getType')
+                                    ? $value->getType()
+                                    : $value->type;
                             },
                         ],
                         'defaultValue' => [
@@ -497,6 +537,8 @@ EOD;
                                 'A GraphQL-formatted string representing the default value for this input value.',
                             'resolve'     => static function ($inputValue) {
                                 /** @var FieldArgument|InputObjectField $inputValue */
+                                $inputValue = $inputValue;
+
                                 return ! $inputValue->defaultValueExists()
                                     ? null
                                     : Printer::doPrint(AST::astFromValue(
@@ -524,8 +566,18 @@ EOD;
                     'a placeholder for a string or numeric value. However an Enum value is ' .
                     'returned in a JSON response as a string.',
                 'fields'          => [
-                    'name'              => ['type' => Type::nonNull(Type::string())],
-                    'description'       => ['type' => Type::string()],
+                    'name'              => [
+                        'type' => Type::nonNull(Type::string()),
+                        'resolve' => static function ($enumValue) {
+                            return $enumValue->name;
+                        },
+                    ],
+                    'description'       => [
+                        'type' => Type::string(),
+                        'resolve' => static function ($enumValue) {
+                            return $enumValue->description;
+                        },
+                    ],
                     'isDeprecated'      => [
                         'type'    => Type::nonNull(Type::boolean()),
                         'resolve' => static function ($enumValue) {
@@ -534,6 +586,9 @@ EOD;
                     ],
                     'deprecationReason' => [
                         'type' => Type::string(),
+                        'resolve' => static function ($enumValue) {
+                            return $enumValue->deprecationReason;
+                        },
                     ],
                 ],
             ]);
@@ -555,45 +610,30 @@ EOD;
                     'conditionally including or skipping a field. Directives provide this by ' .
                     'describing additional information to the executor.',
                 'fields'          => [
-                    'name'        => ['type' => Type::nonNull(Type::string())],
-                    'description' => ['type' => Type::string()],
+                    'name'        => [
+                        'type'    => Type::nonNull(Type::string()),
+                        'resolve' => static function ($obj) {
+                            return $obj->name;
+                        },
+                    ],
+                    'description' => [
+                        'type' => Type::string(),
+                        'resolve' => static function ($obj) {
+                            return $obj->description;
+                        },
+                    ],
                     'locations'   => [
                         'type' => Type::nonNull(Type::listOf(Type::nonNull(
                             self::_directiveLocation()
                         ))),
+                        'resolve' => static function ($obj) {
+                            return $obj->locations;
+                        },
                     ],
                     'args'        => [
                         'type'    => Type::nonNull(Type::listOf(Type::nonNull(self::_inputValue()))),
                         'resolve' => static function (Directive $directive) {
                             return $directive->args ?: [];
-                        },
-                    ],
-
-                    // NOTE: the following three fields are deprecated and are no longer part
-                    // of the GraphQL specification.
-                    'onOperation' => [
-                        'deprecationReason' => 'Use `locations`.',
-                        'type'              => Type::nonNull(Type::boolean()),
-                        'resolve'           => static function ($d) {
-                            return in_array(DirectiveLocation::QUERY, $d->locations, true) ||
-                                in_array(DirectiveLocation::MUTATION, $d->locations, true) ||
-                                in_array(DirectiveLocation::SUBSCRIPTION, $d->locations, true);
-                        },
-                    ],
-                    'onFragment'  => [
-                        'deprecationReason' => 'Use `locations`.',
-                        'type'              => Type::nonNull(Type::boolean()),
-                        'resolve'           => static function ($d) {
-                            return in_array(DirectiveLocation::FRAGMENT_SPREAD, $d->locations, true) ||
-                                in_array(DirectiveLocation::INLINE_FRAGMENT, $d->locations, true) ||
-                                in_array(DirectiveLocation::FRAGMENT_DEFINITION, $d->locations, true);
-                        },
-                    ],
-                    'onField'     => [
-                        'deprecationReason' => 'Use `locations`.',
-                        'type'              => Type::nonNull(Type::boolean()),
-                        'resolve'           => static function ($d) {
-                            return in_array(DirectiveLocation::FIELD, $d->locations, true);
                         },
                     ],
                 ],
@@ -640,6 +680,10 @@ EOD;
                     'INLINE_FRAGMENT'        => [
                         'value'       => DirectiveLocation::INLINE_FRAGMENT,
                         'description' => 'Location adjacent to an inline fragment.',
+                    ],
+                    'VARIABLE_DEFINITION'    => [
+                        'value'       => DirectiveLocation::VARIABLE_DEFINITION,
+                        'description' => 'Location adjacent to a variable definition.',
                     ],
                     'SCHEMA'                 => [
                         'value'       => DirectiveLocation::SCHEMA,
@@ -693,7 +737,7 @@ EOD;
         return self::$map['__DirectiveLocation'];
     }
 
-    public static function schemaMetaFieldDef()
+    public static function schemaMetaFieldDef() : FieldDefinition
     {
         if (! isset(self::$map[self::SCHEMA_FIELD_NAME])) {
             self::$map[self::SCHEMA_FIELD_NAME] = FieldDefinition::create([
@@ -715,7 +759,7 @@ EOD;
         return self::$map[self::SCHEMA_FIELD_NAME];
     }
 
-    public static function typeMetaFieldDef()
+    public static function typeMetaFieldDef() : FieldDefinition
     {
         if (! isset(self::$map[self::TYPE_FIELD_NAME])) {
             self::$map[self::TYPE_FIELD_NAME] = FieldDefinition::create([
@@ -734,7 +778,7 @@ EOD;
         return self::$map[self::TYPE_FIELD_NAME];
     }
 
-    public static function typeNameMetaFieldDef()
+    public static function typeNameMetaFieldDef() : FieldDefinition
     {
         if (! isset(self::$map[self::TYPE_NAME_FIELD_NAME])) {
             self::$map[self::TYPE_NAME_FIELD_NAME] = FieldDefinition::create([

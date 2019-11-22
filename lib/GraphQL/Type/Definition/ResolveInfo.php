@@ -15,17 +15,34 @@ use function array_merge_recursive;
 
 /**
  * Structure containing information useful for field resolution process.
- * Passed as 3rd argument to every field resolver. See [docs on field resolving (data fetching)](data-fetching.md).
+ *
+ * Passed as 4th argument to every field resolver. See [docs on field resolving (data fetching)](data-fetching.md).
  */
 class ResolveInfo
 {
     /**
-     * The name of the field being resolved
+     * The definition of the field being resolved.
+     *
+     * @api
+     * @var FieldDefinition
+     */
+    public $fieldDefinition;
+
+    /**
+     * The name of the field being resolved.
      *
      * @api
      * @var string
      */
     public $fieldName;
+
+    /**
+     * Expected return type of the field being resolved.
+     *
+     * @api
+     * @var OutputType&Type
+     */
+    public $returnType;
 
     /**
      * AST of all nodes referencing this field in the query.
@@ -36,15 +53,7 @@ class ResolveInfo
     public $fieldNodes = [];
 
     /**
-     * Expected return type of the field being resolved
-     *
-     * @api
-     * @var ScalarType|ObjectType|InterfaceType|UnionType|EnumType|ListOfType|NonNull
-     */
-    public $returnType;
-
-    /**
-     * Parent type of the field being resolved
+     * Parent type of the field being resolved.
      *
      * @api
      * @var ObjectType
@@ -52,23 +61,23 @@ class ResolveInfo
     public $parentType;
 
     /**
-     * Path to this field from the very root value
+     * Path to this field from the very root value.
      *
      * @api
-     * @var string[][]
+     * @var string[]
      */
     public $path;
 
     /**
-     * Instance of a schema used for execution
+     * Instance of a schema used for execution.
      *
      * @api
-     * @var Schema|null
+     * @var Schema
      */
     public $schema;
 
     /**
-     * AST of all fragments defined in query
+     * AST of all fragments defined in query.
      *
      * @api
      * @var FragmentDefinitionNode[]
@@ -76,15 +85,15 @@ class ResolveInfo
     public $fragments = [];
 
     /**
-     * Root value passed to query execution
+     * Root value passed to query execution.
      *
      * @api
-     * @var mixed|null
+     * @var mixed
      */
     public $rootValue;
 
     /**
-     * AST of operation definition node (query, mutation)
+     * AST of operation definition node (query, mutation).
      *
      * @api
      * @var OperationDefinitionNode|null
@@ -92,25 +101,26 @@ class ResolveInfo
     public $operation;
 
     /**
-     * Array of variables passed to query execution
+     * Array of variables passed to query execution.
      *
      * @api
      * @var mixed[]
      */
     public $variableValues = [];
 
+    /** @var QueryPlan */
+    private $queryPlan;
+
     /**
-     * @param FieldNode[]                                                               $fieldNodes
-     * @param ScalarType|ObjectType|InterfaceType|UnionType|EnumType|ListOfType|NonNull $returnType
-     * @param string[][]                                                                $path
-     * @param FragmentDefinitionNode[]                                                  $fragments
-     * @param mixed|null                                                                $rootValue
-     * @param mixed[]                                                                   $variableValues
+     * @param FieldNode[]              $fieldNodes
+     * @param string[]                 $path
+     * @param FragmentDefinitionNode[] $fragments
+     * @param mixed|null               $rootValue
+     * @param mixed[]                  $variableValues
      */
     public function __construct(
-        string $fieldName,
-        $fieldNodes,
-        $returnType,
+        FieldDefinition $fieldDefinition,
+        iterable $fieldNodes,
         ObjectType $parentType,
         array $path,
         Schema $schema,
@@ -119,21 +129,22 @@ class ResolveInfo
         ?OperationDefinitionNode $operation,
         array $variableValues
     ) {
-        $this->fieldName      = $fieldName;
-        $this->fieldNodes     = $fieldNodes;
-        $this->returnType     = $returnType;
-        $this->parentType     = $parentType;
-        $this->path           = $path;
-        $this->schema         = $schema;
-        $this->fragments      = $fragments;
-        $this->rootValue      = $rootValue;
-        $this->operation      = $operation;
-        $this->variableValues = $variableValues;
+        $this->fieldDefinition = $fieldDefinition;
+        $this->fieldName       = $fieldDefinition->name;
+        $this->returnType      = $fieldDefinition->getType();
+        $this->fieldNodes      = $fieldNodes;
+        $this->parentType      = $parentType;
+        $this->path            = $path;
+        $this->schema          = $schema;
+        $this->fragments       = $fragments;
+        $this->rootValue       = $rootValue;
+        $this->operation       = $operation;
+        $this->variableValues  = $variableValues;
     }
 
     /**
      * Helper method that returns names of all fields selected in query for
-     * $this->fieldName up to $depth levels
+     * $this->fieldName up to $depth levels.
      *
      * Example:
      * query MyQuery{
@@ -174,11 +185,38 @@ class ResolveInfo
 
         /** @var FieldNode $fieldNode */
         foreach ($this->fieldNodes as $fieldNode) {
-            $fields = array_merge_recursive($fields, $this->foldSelectionSet($fieldNode->selectionSet, $depth));
+            if ($fieldNode->selectionSet === null) {
+                continue;
+            }
+
+            $fields = array_merge_recursive(
+                $fields,
+                $this->foldSelectionSet($fieldNode->selectionSet, $depth)
+            );
         }
 
         return $fields;
     }
+
+    /**
+     * @param mixed[] $options
+     */
+    public function lookAhead(array $options = []) : QueryPlan
+    {
+        if ($this->queryPlan === null) {
+            $this->queryPlan = new QueryPlan(
+                $this->parentType,
+                $this->schema,
+                $this->fieldNodes,
+                $this->variableValues,
+                $this->fragments,
+                $options
+            );
+        }
+
+        return $this->queryPlan;
+    }
+
     /**
      * @return bool[]
      */
@@ -207,6 +245,7 @@ class ResolveInfo
                 );
             }
         }
+
         return $fields;
     }
 }

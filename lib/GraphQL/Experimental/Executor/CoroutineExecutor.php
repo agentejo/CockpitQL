@@ -18,6 +18,8 @@ use GraphQL\Language\AST\SelectionSetNode;
 use GraphQL\Language\AST\ValueNode;
 use GraphQL\Type\Definition\AbstractType;
 use GraphQL\Type\Definition\CompositeType;
+use GraphQL\Type\Definition\EnumType;
+use GraphQL\Type\Definition\InputObjectType;
 use GraphQL\Type\Definition\InputType;
 use GraphQL\Type\Definition\InterfaceType;
 use GraphQL\Type\Definition\LeafType;
@@ -25,17 +27,21 @@ use GraphQL\Type\Definition\ListOfType;
 use GraphQL\Type\Definition\NonNull;
 use GraphQL\Type\Definition\ObjectType;
 use GraphQL\Type\Definition\ResolveInfo;
+use GraphQL\Type\Definition\ScalarType;
 use GraphQL\Type\Definition\Type;
 use GraphQL\Type\Definition\UnionType;
 use GraphQL\Type\Introspection;
 use GraphQL\Type\Schema;
 use GraphQL\Utils\AST;
+use GraphQL\Utils\TypeInfo;
 use GraphQL\Utils\Utils;
 use SplQueue;
 use stdClass;
 use Throwable;
 use function is_array;
 use function is_string;
+use function json_decode;
+use function json_encode;
 use function sprintf;
 
 class CoroutineExecutor implements Runtime, ExecutorImplementation
@@ -70,10 +76,10 @@ class CoroutineExecutor implements Runtime, ExecutorImplementation
     /** @var string|null */
     private $operationName;
 
-    /** @var Collector */
+    /** @var Collector|null */
     private $collector;
 
-    /** @var Error[] */
+    /** @var array<Error> */
     private $errors;
 
     /** @var SplQueue */
@@ -82,10 +88,10 @@ class CoroutineExecutor implements Runtime, ExecutorImplementation
     /** @var SplQueue */
     private $schedule;
 
-    /** @var stdClass */
+    /** @var stdClass|null */
     private $rootResult;
 
-    /** @var int */
+    /** @var int|null */
     private $pending;
 
     /** @var callable */
@@ -105,6 +111,9 @@ class CoroutineExecutor implements Runtime, ExecutorImplementation
             self::$undefined = Utils::undefined();
         }
 
+        $this->errors            = [];
+        $this->queue             = new SplQueue();
+        $this->schedule          = new SplQueue();
         $this->schema            = $schema;
         $this->fieldResolver     = $fieldResolver;
         $this->promiseAdapter    = $promiseAdapter;
@@ -140,13 +149,15 @@ class CoroutineExecutor implements Runtime, ExecutorImplementation
     private static function resultToArray($value, $emptyObjectAsStdClass = true)
     {
         if ($value instanceof stdClass) {
-            $array = [];
-            foreach ($value as $propertyName => $propertyValue) {
+            $array = (array) $value;
+            foreach ($array as $propertyName => $propertyValue) {
                 $array[$propertyName] = self::resultToArray($propertyValue);
             }
+
             if ($emptyObjectAsStdClass && empty($array)) {
                 return new stdClass();
             }
+
             return $array;
         }
 
@@ -155,6 +166,7 @@ class CoroutineExecutor implements Runtime, ExecutorImplementation
             foreach ($value as $key => $item) {
                 $array[$key] = self::resultToArray($item);
             }
+
             return $array;
         }
 
@@ -232,9 +244,9 @@ class CoroutineExecutor implements Runtime, ExecutorImplementation
     private function finishExecute($value, array $errors) : ExecutionResult
     {
         $this->rootResult     = null;
-        $this->errors         = null;
-        $this->queue          = null;
-        $this->schedule       = null;
+        $this->errors         = [];
+        $this->queue          = new SplQueue();
+        $this->schedule       = new SplQueue();
         $this->pending        = null;
         $this->collector      = null;
         $this->variableValues = null;
@@ -248,6 +260,8 @@ class CoroutineExecutor implements Runtime, ExecutorImplementation
 
     /**
      * @internal
+     *
+     * @param ScalarType|EnumType|InputObjectType|ListOfType|NonNull $type
      */
     public function evaluate(ValueNode $valueNode, InputType $type)
     {
@@ -291,13 +305,17 @@ class CoroutineExecutor implements Runtime, ExecutorImplementation
                         $strand->stack[$strand->depth++] = $strand->current;
                         $strand->current                 = $value;
                         goto START;
-                    } elseif ($this->promiseAdapter->isThenable($value)) {
+                    } elseif ($this->isPromise($value)) {
                         // !!! increment pending before calling ->then() as it may invoke the callback right away
                         ++$this->pending;
 
+                        if (! $value instanceof Promise) {
+                            $value = $this->promiseAdapter->convertThenable($value);
+                        }
+
                         $this->promiseAdapter
-                            ->convertThenable($value)
                             ->then(
+                                $value,
                                 function ($value) use ($strand) {
                                     $strand->success = true;
                                     $strand->value   = $value;
@@ -365,6 +383,7 @@ class CoroutineExecutor implements Runtime, ExecutorImplementation
         // short-circuit evaluation for __typename
         if ($ctx->shared->fieldName === Introspection::TYPE_NAME_FIELD_NAME) {
             $ctx->result->{$ctx->shared->resultName} = $ctx->type->name;
+
             return;
         }
 
@@ -389,9 +408,8 @@ class CoroutineExecutor implements Runtime, ExecutorImplementation
                 $returnType = $fieldDefinition->getType();
 
                 $ctx->resolveInfo = new ResolveInfo(
-                    $ctx->shared->fieldName,
+                    $fieldDefinition,
                     $ctx->shared->fieldNodes,
-                    $returnType,
                     $ctx->type,
                     $ctx->path,
                     $this->schema,
@@ -475,7 +493,7 @@ class CoroutineExecutor implements Runtime, ExecutorImplementation
     private function completeValueFast(CoroutineContext $ctx, Type $type, $value, array $path, &$returnValue) : bool
     {
         // special handling of Throwable inherited from JS reference implementation, but makes no sense in this PHP
-        if ($this->promiseAdapter->isThenable($value) || $value instanceof Throwable) {
+        if ($this->isPromise($value) || $value instanceof Throwable) {
             return false;
         }
 
@@ -491,7 +509,7 @@ class CoroutineExecutor implements Runtime, ExecutorImplementation
 
         if ($type !== $this->schema->getType($type->name)) {
             $hint = '';
-            if ($this->schema->getConfig()->typeLoader) {
+            if ($this->schema->getConfig()->typeLoader !== null) {
                 $hint = sprintf(
                     'Make sure that type loader returns the same instance as defined in %s.%s',
                     $ctx->type,
@@ -571,7 +589,7 @@ class CoroutineExecutor implements Runtime, ExecutorImplementation
 
         // !!! $value might be promise, yield to resolve
         try {
-            if ($this->promiseAdapter->isThenable($value)) {
+            if ($this->isPromise($value)) {
                 $value = yield $value;
             }
         } catch (Throwable $reason) {
@@ -613,8 +631,9 @@ class CoroutineExecutor implements Runtime, ExecutorImplementation
             foreach ($value as $itemValue) {
                 ++$index;
 
-                $itemPath   = $path;
-                $itemPath[] = $index; // !!! use arrays COW semantics
+                $itemPath               = $path;
+                $itemPath[]             = $index; // !!! use arrays COW semantics
+                $ctx->resolveInfo->path = $itemPath;
 
                 try {
                     if (! $this->completeValueFast($ctx, $itemType, $itemValue, $itemPath, $itemReturnValue)) {
@@ -639,7 +658,7 @@ class CoroutineExecutor implements Runtime, ExecutorImplementation
         } else {
             if ($type !== $this->schema->getType($type->name)) {
                 $hint = '';
-                if ($this->schema->getConfig()->typeLoader) {
+                if ($this->schema->getConfig()->typeLoader !== null) {
                     $hint = sprintf(
                         'Make sure that type loader returns the same instance as defined in %s.%s',
                         $ctx->type,
@@ -813,9 +832,16 @@ class CoroutineExecutor implements Runtime, ExecutorImplementation
                 } else {
                     $childContexts = [];
 
-                    foreach ($this->collector->collectFields($objectType, $ctx->shared->mergedSelectionSet ?? $this->mergeSelectionSets($ctx)) as $childShared) {
-                        /** @var CoroutineContextShared $childShared */
+                    $fields = [];
+                    if ($this->collector !== null) {
+                        $fields = $this->collector->collectFields(
+                            $objectType,
+                            $ctx->shared->mergedSelectionSet ?? $this->mergeSelectionSets($ctx)
+                        );
+                    }
 
+                    /** @var CoroutineContextShared $childShared */
+                    foreach ($fields as $childShared) {
                         $childPath   = $path;
                         $childPath[] = $childShared->resultName; // !!! uses array COW semantics
                         $childCtx    = new CoroutineContext(
@@ -887,6 +913,11 @@ class CoroutineExecutor implements Runtime, ExecutorImplementation
         return $ctx->shared->mergedSelectionSet = new SelectionSetNode(['selections' => $selections]);
     }
 
+    /**
+     * @param InterfaceType|UnionType $abstractType
+     *
+     * @return Generator|ObjectType|Type|null
+     */
     private function resolveTypeSlow(CoroutineContext $ctx, $value, AbstractType $abstractType)
     {
         if ($value !== null &&
@@ -897,7 +928,7 @@ class CoroutineExecutor implements Runtime, ExecutorImplementation
             return $this->schema->getType($value['__typename']);
         }
 
-        if ($abstractType instanceof InterfaceType && $this->schema->getConfig()->typeLoader) {
+        if ($abstractType instanceof InterfaceType && $this->schema->getConfig()->typeLoader !== null) {
             Warning::warnOnce(
                 sprintf(
                     'GraphQL Interface Type `%s` returned `null` from its `resolveType` function ' .
@@ -919,7 +950,7 @@ class CoroutineExecutor implements Runtime, ExecutorImplementation
         $selectedType = null;
         foreach ($possibleTypes as $type) {
             $typeCheck = yield $type->isTypeOf($value, $this->contextValue, $ctx->resolveInfo);
-            if ($selectedType !== null || $typeCheck !== true) {
+            if ($selectedType !== null || ! $typeCheck) {
                 continue;
             }
 
@@ -927,5 +958,15 @@ class CoroutineExecutor implements Runtime, ExecutorImplementation
         }
 
         return $selectedType;
+    }
+
+    /**
+     * @param mixed $value
+     *
+     * @return bool
+     */
+    private function isPromise($value)
+    {
+        return $value instanceof Promise || $this->promiseAdapter->isThenable($value);
     }
 }

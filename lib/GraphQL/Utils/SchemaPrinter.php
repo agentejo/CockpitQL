@@ -153,11 +153,8 @@ class SchemaPrinter
         }
 
         $subscriptionType = $schema->getSubscriptionType();
-        if ($subscriptionType && $subscriptionType->name !== 'Subscription') {
-            return false;
-        }
 
-        return true;
+        return ! $subscriptionType || $subscriptionType->name === 'Subscription';
     }
 
     private static function printDirective($directive, $options) : string
@@ -356,8 +353,8 @@ class SchemaPrinter
     private static function printObject(ObjectType $type, array $options) : string
     {
         $interfaces            = $type->getInterfaces();
-        $implementedInterfaces = ! empty($interfaces) ?
-            ' implements ' . implode(
+        $implementedInterfaces = ! empty($interfaces)
+            ? ' implements ' . implode(
                 ' & ',
                 array_map(
                     static function ($i) {
@@ -365,7 +362,8 @@ class SchemaPrinter
                     },
                     $interfaces
                 )
-            ) : '';
+            )
+            : '';
 
         return self::printDescription($options, $type) .
             sprintf("type %s%s {\n%s\n}", $type->name, $implementedInterfaces, self::printFields($options, $type));

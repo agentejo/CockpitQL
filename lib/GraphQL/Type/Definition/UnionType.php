@@ -14,9 +14,6 @@ use function is_callable;
 use function is_string;
 use function sprintf;
 
-/**
- * Class UnionType
- */
 class UnionType extends Type implements AbstractType, OutputType, CompositeType, NullableType, NamedType
 {
     /** @var UnionTypeDefinitionNode */
@@ -25,13 +22,16 @@ class UnionType extends Type implements AbstractType, OutputType, CompositeType,
     /** @var ObjectType[] */
     private $types;
 
-    /** @var ObjectType[] */
+    /** @var array<string, bool>|null */
     private $possibleTypeNames;
 
     /** @var UnionTypeExtensionNode[] */
     public $extensionASTNodes;
 
-    public function __construct($config)
+    /**
+     * @param mixed[] $config
+     */
+    public function __construct(array $config)
     {
         if (! isset($config['name'])) {
             $config['name'] = $this->tryInferName();

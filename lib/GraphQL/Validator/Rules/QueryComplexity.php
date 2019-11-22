@@ -41,6 +41,9 @@ class QueryComplexity extends QuerySecurityRule
     /** @var ValidationContext */
     private $context;
 
+    /** @var int */
+    private $complexity;
+
     public function __construct($maxQueryComplexity)
     {
         $this->setMaxQueryComplexity($maxQueryComplexity);
@@ -52,7 +55,7 @@ class QueryComplexity extends QuerySecurityRule
 
         $this->variableDefs     = new ArrayObject();
         $this->fieldNodeAndDefs = new ArrayObject();
-        $complexity             = 0;
+        $this->complexity       = 0;
 
         return $this->invokeIfNeeded(
             $context,
@@ -79,16 +82,16 @@ class QueryComplexity extends QuerySecurityRule
                             return;
                         }
 
-                        $complexity = $this->fieldComplexity($operationDefinition, $complexity);
+                        $this->complexity = $this->fieldComplexity($operationDefinition, $complexity);
 
-                        if ($complexity <= $this->getMaxQueryComplexity()) {
+                        if ($this->getQueryComplexity() <= $this->getMaxQueryComplexity()) {
                             return;
                         }
 
                         $context->reportError(
                             new Error(self::maxQueryComplexityErrorMessage(
                                 $this->getMaxQueryComplexity(),
-                                $complexity
+                                $this->getQueryComplexity()
                             ))
                         );
                     },
@@ -110,9 +113,8 @@ class QueryComplexity extends QuerySecurityRule
 
     private function nodeComplexity(Node $node, $complexity = 0)
     {
-        switch ($node->kind) {
-            case NodeKind::FIELD:
-                /** @var FieldNode $node */
+        switch (true) {
+            case $node instanceof FieldNode:
                 // default values
                 $args         = [];
                 $complexityFn = FieldDefinition::DEFAULT_COMPLEXITY_FN;
@@ -143,16 +145,14 @@ class QueryComplexity extends QuerySecurityRule
                 $complexity += call_user_func_array($complexityFn, [$childrenComplexity, $args]);
                 break;
 
-            case NodeKind::INLINE_FRAGMENT:
-                /** @var InlineFragmentNode $node */
+            case $node instanceof InlineFragmentNode:
                 // node has children?
                 if (isset($node->selectionSet)) {
                     $complexity = $this->fieldComplexity($node, $complexity);
                 }
                 break;
 
-            case NodeKind::FRAGMENT_SPREAD:
-                /** @var FragmentSpreadNode $node */
+            case $node instanceof FragmentSpreadNode:
                 $fragment = $this->getFragment($node);
 
                 if ($fragment !== null) {
@@ -206,12 +206,19 @@ class QueryComplexity extends QuerySecurityRule
                 $directive = Directive::includeDirective();
                 /** @var bool $directiveArgsIf */
                 $directiveArgsIf = Values::getArgumentValues($directive, $directiveNode, $variableValues)['if'];
+
                 return ! $directiveArgsIf;
             }
-            $directive       = Directive::skipDirective();
-            $directiveArgsIf = Values::getArgumentValues($directive, $directiveNode, $variableValues);
-            return $directiveArgsIf['if'];
+            if ($directiveNode->name->value === Directive::SKIP_NAME) {
+                $directive = Directive::skipDirective();
+                /** @var bool $directiveArgsIf */
+                $directiveArgsIf = Values::getArgumentValues($directive, $directiveNode, $variableValues)['if'];
+
+                return $directiveArgsIf;
+            }
         }
+
+        return false;
     }
 
     public function getRawVariableValues()
@@ -260,6 +267,11 @@ class QueryComplexity extends QuerySecurityRule
         return $args;
     }
 
+    public function getQueryComplexity()
+    {
+        return $this->complexity;
+    }
+
     public function getMaxQueryComplexity()
     {
         return $this->maxQueryComplexity;
@@ -282,6 +294,6 @@ class QueryComplexity extends QuerySecurityRule
 
     protected function isEnabled()
     {
-        return $this->getMaxQueryComplexity() !== static::DISABLED;
+        return $this->getMaxQueryComplexity() !== self::DISABLED;
     }
 }

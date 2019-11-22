@@ -9,6 +9,7 @@ use function is_string;
 use function json_decode;
 use function json_last_error;
 use const CASE_LOWER;
+use const JSON_ERROR_NONE;
 
 /**
  * Structure representing parsed HTTP parameters for GraphQL operation
@@ -62,13 +63,10 @@ class OperationParams
      * Creates an instance from given array
      *
      * @param mixed[] $params
-     * @param bool    $readonly
-     *
-     * @return OperationParams
      *
      * @api
      */
-    public static function create(array $params, $readonly = false)
+    public static function create(array $params, bool $readonly = false) : OperationParams
     {
         $instance = new static();
 
@@ -96,7 +94,7 @@ class OperationParams
             }
 
             $tmp = json_decode($params[$param], true);
-            if (json_last_error()) {
+            if (json_last_error() !== JSON_ERROR_NONE) {
                 continue;
             }
 
@@ -108,7 +106,7 @@ class OperationParams
         $instance->operation  = $params['operationname'];
         $instance->variables  = $params['variables'];
         $instance->extensions = $params['extensions'];
-        $instance->readOnly   = (bool) $readonly;
+        $instance->readOnly   = $readonly;
 
         // Apollo server/client compatibility: look for the queryid in extensions
         if (isset($instance->extensions['persistedQuery']['sha256Hash']) && empty($instance->query) && empty($instance->queryId)) {

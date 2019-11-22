@@ -6,10 +6,12 @@ namespace GraphQL\Utils;
 
 use GraphQL\Type\Definition\AbstractType;
 use GraphQL\Type\Definition\CompositeType;
+use GraphQL\Type\Definition\InterfaceType;
 use GraphQL\Type\Definition\ListOfType;
 use GraphQL\Type\Definition\NonNull;
 use GraphQL\Type\Definition\ObjectType;
 use GraphQL\Type\Definition\Type;
+use GraphQL\Type\Definition\UnionType;
 use GraphQL\Type\Schema;
 
 class TypeComparators
@@ -44,12 +46,9 @@ class TypeComparators
      * Provided a type and a super type, return true if the first type is either
      * equal or a subset of the second super type (covariant).
      *
-     * @param AbstractType $maybeSubType
-     * @param AbstractType $superType
-     *
      * @return bool
      */
-    public static function isTypeSubTypeOf(Schema $schema, $maybeSubType, $superType)
+    public static function isTypeSubTypeOf(Schema $schema, Type $maybeSubType, Type $superType)
     {
         // Equivalent type is a valid subtype
         if ($maybeSubType === $superType) {
@@ -86,18 +85,12 @@ class TypeComparators
 
         // If superType type is an abstract type, maybeSubType type may be a currently
         // possible object type.
-        if (Type::isAbstractType($superType) &&
+        return Type::isAbstractType($superType) &&
             $maybeSubType instanceof ObjectType &&
             $schema->isPossibleType(
                 $superType,
                 $maybeSubType
-            )
-        ) {
-            return true;
-        }
-
-        // Otherwise, the child type is not a valid subtype of the parent type.
-        return false;
+            );
     }
 
     /**
@@ -131,13 +124,11 @@ class TypeComparators
                 return false;
             }
 
-            /** @var $typeB ObjectType */
             // Determine if the latter type is a possible concrete type of the former.
             return $schema->isPossibleType($typeA, $typeB);
         }
 
         if ($typeB instanceof AbstractType) {
-            /** @var $typeA ObjectType */
             // Determine if the former type is a possible concrete type of the latter.
             return $schema->isPossibleType($typeB, $typeA);
         }

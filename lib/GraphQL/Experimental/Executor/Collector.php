@@ -13,10 +13,8 @@ use GraphQL\Language\AST\FragmentDefinitionNode;
 use GraphQL\Language\AST\FragmentSpreadNode;
 use GraphQL\Language\AST\InlineFragmentNode;
 use GraphQL\Language\AST\Node;
-use GraphQL\Language\AST\NodeKind;
 use GraphQL\Language\AST\OperationDefinitionNode;
 use GraphQL\Language\AST\SelectionSetNode;
-use GraphQL\Language\AST\ValueNode;
 use GraphQL\Type\Definition\AbstractType;
 use GraphQL\Type\Definition\Directive;
 use GraphQL\Type\Definition\ObjectType;
@@ -48,7 +46,7 @@ class Collector
     /** @var FieldNode[][] */
     private $fields;
 
-    /** @var string[] */
+    /** @var array<string, bool> */
     private $visitedFragments;
 
     public function __construct(Schema $schema, Runtime $runtime)
@@ -64,8 +62,7 @@ class Collector
         foreach ($documentNode->definitions as $definitionNode) {
             /** @var DefinitionNode|Node $definitionNode */
 
-            if ($definitionNode->kind === NodeKind::OPERATION_DEFINITION) {
-                /** @var OperationDefinitionNode $definitionNode */
+            if ($definitionNode instanceof OperationDefinitionNode) {
                 if ($operationName === null && $this->operation !== null) {
                     $hasMultipleAssumedOperations = true;
                 }
@@ -74,8 +71,7 @@ class Collector
                 ) {
                     $this->operation = $definitionNode;
                 }
-            } elseif ($definitionNode->kind === NodeKind::FRAGMENT_DEFINITION) {
-                /** @var FragmentDefinitionNode $definitionNode */
+            } elseif ($definitionNode instanceof FragmentDefinitionNode) {
                 $this->fragments[$definitionNode->name->value] = $definitionNode;
             }
         }
@@ -86,11 +82,13 @@ class Collector
             } else {
                 $this->runtime->addError(new Error('Must provide an operation.'));
             }
+
             return;
         }
 
         if ($hasMultipleAssumedOperations) {
             $this->runtime->addError(new Error('Must provide operation name if query contains multiple operations.'));
+
             return;
         }
 
@@ -147,11 +145,10 @@ class Collector
 
         foreach ($selectionSet->selections as $selection) {
             /** @var FieldNode|FragmentSpreadNode|InlineFragmentNode $selection */
-
             if (! empty($selection->directives)) {
                 foreach ($selection->directives as $directiveNode) {
                     if ($directiveNode->name->value === Directive::SKIP_NAME) {
-                        /** @var ValueNode|null $condition */
+                        /** @var VariableNode|NullValueNode|IntValueNode|FloatValueNode|StringValueNode|BooleanValueNode|EnumValueNode|ListValueNode|ObjectValueNode|null $condition */
                         $condition = null;
                         foreach ($directiveNode->arguments as $argumentNode) {
                             if ($argumentNode->name->value === Directive::IF_ARGUMENT_NAME) {
@@ -171,7 +168,7 @@ class Collector
                             }
                         }
                     } elseif ($directiveNode->name->value === Directive::INCLUDE_NAME) {
-                        /** @var ValueNode|null $condition */
+                        /** @var VariableNode|NullValueNode|IntValueNode|FloatValueNode|StringValueNode|BooleanValueNode|EnumValueNode|ListValueNode|ObjectValueNode|null $condition */
                         $condition = null;
                         foreach ($directiveNode->arguments as $argumentNode) {
                             if ($argumentNode->name->value === Directive::IF_ARGUMENT_NAME) {
@@ -194,24 +191,22 @@ class Collector
                 }
             }
 
-            if ($selection->kind === NodeKind::FIELD) {
-                /** @var FieldNode $selection */
-
-                $resultName = $selection->alias ? $selection->alias->value : $selection->name->value;
+            if ($selection instanceof FieldNode) {
+                $resultName = $selection->alias === null ? $selection->name->value : $selection->alias->value;
 
                 if (! isset($this->fields[$resultName])) {
                     $this->fields[$resultName] = [];
                 }
 
                 $this->fields[$resultName][] = $selection;
-            } elseif ($selection->kind === NodeKind::FRAGMENT_SPREAD) {
-                /** @var FragmentSpreadNode $selection */
-
+            } elseif ($selection instanceof FragmentSpreadNode) {
                 $fragmentName = $selection->name->value;
 
                 if (isset($this->visitedFragments[$fragmentName])) {
                     continue;
-                } elseif (! isset($this->fragments[$fragmentName])) {
+                }
+
+                if (! isset($this->fragments[$fragmentName])) {
                     $this->runtime->addError(new Error(
                         sprintf('Fragment "%s" does not exist.', $fragmentName),
                         $selection
@@ -245,9 +240,7 @@ class Collector
                 }
 
                 $this->doCollectFields($runtimeType, $fragmentDefinition->selectionSet);
-            } elseif ($selection->kind === NodeKind::INLINE_FRAGMENT) {
-                /** @var InlineFragmentNode $selection */
-
+            } elseif ($selection instanceof InlineFragmentNode) {
                 if ($selection->typeCondition !== null) {
                     $conditionTypeName = $selection->typeCondition->name->value;
 

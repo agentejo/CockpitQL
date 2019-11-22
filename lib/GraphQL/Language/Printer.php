@@ -28,6 +28,7 @@ use GraphQL\Language\AST\IntValueNode;
 use GraphQL\Language\AST\ListTypeNode;
 use GraphQL\Language\AST\ListValueNode;
 use GraphQL\Language\AST\NamedTypeNode;
+use GraphQL\Language\AST\NameNode;
 use GraphQL\Language\AST\Node;
 use GraphQL\Language\AST\NodeKind;
 use GraphQL\Language\AST\NonNullTypeNode;
@@ -47,6 +48,7 @@ use GraphQL\Language\AST\StringValueNode;
 use GraphQL\Language\AST\UnionTypeDefinitionNode;
 use GraphQL\Language\AST\UnionTypeExtensionNode;
 use GraphQL\Language\AST\VariableDefinitionNode;
+use GraphQL\Language\AST\VariableNode;
 use GraphQL\Utils\Utils;
 use function count;
 use function implode;
@@ -97,11 +99,11 @@ class Printer
             $ast,
             [
                 'leave' => [
-                    NodeKind::NAME => static function (Node $node) {
+                    NodeKind::NAME => static function (NameNode $node) {
                         return '' . $node->value;
                     },
 
-                    NodeKind::VARIABLE => static function ($node) {
+                    NodeKind::VARIABLE => static function (VariableNode $node) {
                         return '$' . $node->name;
                     },
 
@@ -115,6 +117,7 @@ class Printer
                         $varDefs      = $this->wrap('(', $this->join($node->variableDefinitions, ', '), ')');
                         $directives   = $this->join($node->directives, ' ');
                         $selectionSet = $node->selectionSet;
+
                         // Anonymous queries with no directives or variable definitions can use
                         // the query short form.
                         return ! $name && ! $directives && ! $varDefs && $op === 'query'
@@ -123,7 +126,11 @@ class Printer
                     },
 
                     NodeKind::VARIABLE_DEFINITION => function (VariableDefinitionNode $node) {
-                        return $node->variable . ': ' . $node->type . $this->wrap(' = ', $node->defaultValue);
+                        return $node->variable
+                            . ': '
+                            . $node->type
+                            . $this->wrap(' = ', $node->defaultValue)
+                            . $this->wrap(' ', $this->join($node->directives, ' '));
                     },
 
                     NodeKind::SELECTION_SET => function (SelectionSetNode $node) {

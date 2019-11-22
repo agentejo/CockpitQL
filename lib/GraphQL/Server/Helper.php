@@ -73,10 +73,14 @@ class Helper
             }
 
             if (stripos($contentType, 'application/graphql') !== false) {
-                $rawBody    = $readRawBodyFn ? $readRawBodyFn() : $this->readRawBody();
+                $rawBody    = $readRawBodyFn
+                    ? $readRawBodyFn()
+                    : $this->readRawBody();
                 $bodyParams = ['query' => $rawBody ?: ''];
             } elseif (stripos($contentType, 'application/json') !== false) {
-                $rawBody    = $readRawBodyFn ? $readRawBodyFn() : $this->readRawBody();
+                $rawBody    = $readRawBodyFn ?
+                    $readRawBodyFn()
+                    : $this->readRawBody();
                 $bodyParams = json_decode($rawBody ?: '', true);
 
                 if (json_last_error()) {
@@ -142,7 +146,7 @@ class Helper
      * Checks validity of OperationParams extracted from HTTP request and returns an array of errors
      * if params are invalid (or empty array when params are valid)
      *
-     * @return Error[]
+     * @return array<int, RequestError>
      *
      * @api
      */
@@ -272,13 +276,20 @@ class Helper
                 );
             }
 
-            $doc = $op->queryId ? $this->loadPersistedQuery($config, $op) : $op->query;
+            $doc = $op->queryId
+                ? $this->loadPersistedQuery($config, $op)
+                : $op->query;
 
             if (! $doc instanceof DocumentNode) {
                 $doc = Parser::parse($doc);
             }
 
             $operationType = AST::getOperation($doc, $op->operation);
+
+            if ($operationType === false) {
+                throw new RequestError('Failed to determine operation type');
+            }
+
             if ($operationType !== 'query' && $op->isReadOnly()) {
                 throw new RequestError('GET supports only query operation');
             }
@@ -379,19 +390,17 @@ class Helper
     }
 
     /**
-     * @param string $operationType
-     *
      * @return mixed
      */
-    private function resolveRootValue(ServerConfig $config, OperationParams $params, DocumentNode $doc, $operationType)
+    private function resolveRootValue(ServerConfig $config, OperationParams $params, DocumentNode $doc, string $operationType)
     {
-        $root = $config->getRootValue();
+        $rootValue = $config->getRootValue();
 
-        if (is_callable($root)) {
-            $root = $root($params, $doc, $operationType);
+        if (is_callable($rootValue)) {
+            $rootValue = $rootValue($params, $doc, $operationType);
         }
 
-        return $root;
+        return $rootValue;
     }
 
     /**

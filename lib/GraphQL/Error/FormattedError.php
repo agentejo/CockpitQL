@@ -6,7 +6,6 @@ namespace GraphQL\Error;
 
 use Countable;
 use ErrorException;
-use Exception;
 use GraphQL\Language\AST\Node;
 use GraphQL\Language\Source;
 use GraphQL\Language\SourceLocation;
@@ -177,7 +176,7 @@ class FormattedError
     public static function createFromException($e, $debug = false, $internalErrorMessage = null)
     {
         Utils::invariant(
-            $e instanceof Exception || $e instanceof Throwable,
+            $e instanceof Throwable,
             'Expected exception, got %s',
             Utils::getVariableType($e)
         );
@@ -231,7 +230,7 @@ class FormattedError
      *
      * @param mixed[]   $formattedError
      * @param Throwable $e
-     * @param bool      $debug
+     * @param bool|int  $debug
      *
      * @return mixed[]
      *
@@ -244,7 +243,7 @@ class FormattedError
         }
 
         Utils::invariant(
-            $e instanceof Exception || $e instanceof Throwable,
+            $e instanceof Throwable,
             'Expected exception, got %s',
             Utils::getVariableType($e)
         );
@@ -297,7 +296,7 @@ class FormattedError
      * Prepares final error formatter taking in account $debug flags.
      * If initial formatter is not set, FormattedError::createFromException is used
      *
-     * @param  bool $debug
+     * @param  bool|int $debug
      *
      * @return callable|callable
      */
@@ -428,6 +427,8 @@ class FormattedError
      * @deprecated as of v0.10.0, use general purpose method createFromException() instead
      *
      * @return mixed[]
+     *
+     * @codeCoverageIgnore
      */
     public static function createFromPHPError(ErrorException $e)
     {

@@ -23,7 +23,6 @@ use function array_shift;
 use function array_slice;
 use function array_values;
 use function asort;
-use function chr;
 use function count;
 use function dechex;
 use function func_get_args;
@@ -264,8 +263,8 @@ class Utils
         $grouped = [];
         foreach ($traversable as $key => $value) {
             $newKeys = (array) $keyFn($value, $key);
-            foreach ($newKeys as $key) {
-                $grouped[$key][] = $value;
+            foreach ($newKeys as $newKey) {
+                $grouped[$newKey][] = $value;
             }
         }
 
@@ -301,6 +300,22 @@ class Utils
         }
 
         return true;
+    }
+
+    /**
+     * @param mixed[] $traversable
+     *
+     * @return bool
+     */
+    public static function some($traversable, callable $predicate)
+    {
+        foreach ($traversable as $key => $value) {
+            if ($predicate($value, $key)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -426,9 +441,6 @@ class Utils
      */
     public static function chr($ord, $encoding = 'UTF-8')
     {
-        if ($ord <= 255) {
-            return chr($ord);
-        }
         if ($encoding === 'UCS-4BE') {
             return pack('N', $ord);
         }
