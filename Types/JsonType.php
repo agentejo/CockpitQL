@@ -33,7 +33,7 @@ class JsonType extends ScalarType
         return $this->identity($value);
     }
 
-    public function parseLiteral($valueNode, array $variables = null) {
+    public function parseLiteral(Node $valueNode, array $variables = null) {
 
         switch ($valueNode) {
             case ($valueNode instanceof StringValueNode):
