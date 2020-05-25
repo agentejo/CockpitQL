@@ -92,7 +92,8 @@ class FieldType {
             case 'html':
 
                 if ($field['type'] == 'text' && isset($field['options']['type']) && $field['options']['type'] == 'number') {
-                    $def['type'] = Type::int();
+                    $step = $field['options']['step'] ?? '';
+                    $def['type'] = $step && ($step == 'any' || \strpos($step, '.') !== false) ? Type::float() : Type::int();
                 } else {
                     $def['type'] = Type::string();
                 }
