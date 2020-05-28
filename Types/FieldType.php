@@ -200,40 +200,14 @@ class FieldType {
                 }
 
                 $linkType = self::collectionLinkFieldType($field['options']['link'], $field, $collection);
-
-                if (isset($field['options']['multiple']) && $field['options']['multiple']) {
-                    $def['type'] =  Type::listOf($linkType);
-                    $def['args'] = [
-                        'limit' => Type::int(),
-                        'skip' => Type::int(),
-                        'sort' => JsonType::instance(),
-                    ];
+                $isMultiple = isset($field['options']['multiple']) && $field['options']['multiple'];
+                $def['type'] = $isMultiple ? Type::listOf($linkType) : $linkType;
+                if ($isMultiple) {
                     $def['resolve'] = function ($root, $args) use ($field) {
                         if (!is_array($root[$field['name']])) return [];
-
-                        $options = [
-                            'filter' => [
-                                '_id' => [
-                                    '$in' => array_column($root[$field['name']], '_id')
-                                ]
-                            ]
-                        ];
-
-                        if (isset($args['limit'])) $options['limit'] = $args['limit'];
-                        if (isset($args['skip'])) $options['skip'] = $args['skip'];
-                        if (isset($args['sort'])) $options['sort'] = $args['sort'];
-
-                        return cockpit('collections')->find($field['options']['link'], $options);
-                    };
-                } else {
-                    $def['type'] = $linkType;
-                    $def['resolve'] = function ($root) use ($field) {
-                        return cockpit('collections')->findOne($field['options']['link'], [
-                            '_id' => $root[$field['name']]['_id']
-                        ]);
+                        return $root[$field['name']];
                     };
                 }
-
                 break;
 
             default:
