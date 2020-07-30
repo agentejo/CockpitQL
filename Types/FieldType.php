@@ -212,6 +212,11 @@ class FieldType {
                     ];
                     $def['resolve'] = function ($root, $args) use ($field) {
                         if (!is_array($root[$field['name']])) return [];
+                        if (!count($root[$field['name']])) return [];
+
+                        if (!isset($root[$field['name']][0]['link'])) {
+                            return $root[$field['name']];
+                        }
 
                         $options = [
                             'filter' => [
