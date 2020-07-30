@@ -192,6 +192,7 @@ class FieldType {
                 break;
 
             case 'collectionlink':
+            case 'collectionlinkselect':
 
                 $collection = cockpit('collections')->collection($field['options']['link']);
 
@@ -207,6 +208,7 @@ class FieldType {
                         'limit' => Type::int(),
                         'skip' => Type::int(),
                         'sort' => JsonType::instance(),
+                        'lang' => Type::string(),
                     ];
                     $def['resolve'] = function ($root, $args) use ($field) {
                         if (!is_array($root[$field['name']])) return [];
@@ -222,15 +224,29 @@ class FieldType {
                         if (isset($args['limit'])) $options['limit'] = $args['limit'];
                         if (isset($args['skip'])) $options['skip'] = $args['skip'];
                         if (isset($args['sort'])) $options['sort'] = $args['sort'];
+                        if (isset($args['lang'])) $options['lang'] = $args['lang'];
 
                         return cockpit('collections')->find($field['options']['link'], $options);
                     };
                 } else {
+
                     $def['type'] = $linkType;
-                    $def['resolve'] = function ($root) use ($field) {
+                    $def['args'] = [
+                        'lang' => Type::string(),
+                    ];
+                    $def['resolve'] = function ($root, $args, $context, $info) use ($field) {
+
+                        $options = [];
+
+                        if (!isset($root[$field['name']]['link'])) {
+                            return $root[$field['name']];
+                        }
+
+                        if (isset($args['lang'])) $options['lang'] = $args['lang'];
+
                         return cockpit('collections')->findOne($field['options']['link'], [
                             '_id' => $root[$field['name']]['_id']
-                        ]);
+                        ], null, false, $options);
                     };
                 }
 

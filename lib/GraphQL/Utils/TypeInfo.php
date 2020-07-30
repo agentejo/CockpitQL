@@ -29,23 +29,18 @@ use GraphQL\Type\Definition\InputObjectType;
 use GraphQL\Type\Definition\InputType;
 use GraphQL\Type\Definition\InterfaceType;
 use GraphQL\Type\Definition\ListOfType;
-use GraphQL\Type\Definition\NonNull;
 use GraphQL\Type\Definition\ObjectType;
 use GraphQL\Type\Definition\OutputType;
-use GraphQL\Type\Definition\ScalarType;
 use GraphQL\Type\Definition\Type;
 use GraphQL\Type\Definition\UnionType;
 use GraphQL\Type\Definition\WrappingType;
 use GraphQL\Type\Introspection;
 use GraphQL\Type\Schema;
-use SplStack;
-use Symfony\Component\Console\Output\Output;
 use function array_map;
 use function array_merge;
 use function array_pop;
 use function count;
 use function is_array;
-use function is_null;
 use function sprintf;
 
 class TypeInfo
@@ -89,7 +84,7 @@ class TypeInfo
         $this->fieldDefStack     = [];
         $this->defaultValueStack = [];
 
-        if (! $initialType) {
+        if ($initialType === null) {
             return;
         }
 
@@ -164,6 +159,7 @@ class TypeInfo
         if ($type instanceof WrappingType) {
             return self::extractTypes($type->getWrappedType(true), $typeMap);
         }
+
         if (! $type instanceof Type) {
             // Preserve these invalid types in map (at numeric index) to make them
             // detectable during $schema->validate()
@@ -180,7 +176,7 @@ class TypeInfo
             return $typeMap;
         }
 
-        if (! empty($typeMap[$type->name])) {
+        if (isset($typeMap[$type->name])) {
             Utils::invariant(
                 $typeMap[$type->name] === $type,
                 sprintf('Schema must contain unique named types but contains multiple types named "%s" ', $type) .
@@ -201,9 +197,9 @@ class TypeInfo
         }
         if ($type instanceof ObjectType || $type instanceof InterfaceType) {
             foreach ($type->getFields() as $fieldName => $field) {
-                if (! empty($field->args)) {
+                if (count($field->args ?? []) > 0) {
                     $fieldArgTypes = array_map(
-                        static function (FieldArgument $arg) {
+                        static function (FieldArgument $arg) : Type {
                             return $arg->getType();
                         },
                         $field->args
@@ -242,6 +238,9 @@ class TypeInfo
         return $typeMap;
     }
 
+    /**
+     * @return (Type&InputType)|null
+     */
     public function getParentInputType() : ?InputType
     {
         return $this->inputTypeStack[count($this->inputTypeStack) - 2] ?? null;
@@ -322,13 +321,13 @@ class TypeInfo
                 break;
 
             case $node instanceof ArgumentNode:
-                $fieldOrDirective = $this->getDirective() ?: $this->getFieldDef();
+                $fieldOrDirective = $this->getDirective() ?? $this->getFieldDef();
                 $argDef           = $argType = null;
                 if ($fieldOrDirective) {
                     /** @var FieldArgument $argDef */
                     $argDef = Utils::find(
                         $fieldOrDirective->args,
-                        static function ($arg) use ($node) {
+                        static function ($arg) use ($node) : bool {
                             return $arg->name === $node->name->value;
                         }
                     );

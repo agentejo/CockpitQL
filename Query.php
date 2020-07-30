@@ -2,6 +2,7 @@
 
 namespace CockpitQL;
 
+use ArrayObject;
 use GraphQL\GraphQL;
 use GraphQL\Type\Schema;
 use GraphQL\Type\Definition\ObjectType;
@@ -43,6 +44,7 @@ class Query {
         try {
 
             $rootValue = [];
+            $context = new ArrayObject([]);
             $result = GraphQL::executeQuery($schema, $query, $rootValue, null, $variables)->toArray();
 
             if (isset($result['data'])) {

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace GraphQL\Type;
 
 use GraphQL\Error\Error;
+use GraphQL\Language\AST\DirectiveDefinitionNode;
 use GraphQL\Language\AST\DirectiveNode;
 use GraphQL\Language\AST\EnumValueDefinitionNode;
 use GraphQL\Language\AST\FieldDefinitionNode;
@@ -71,7 +72,7 @@ class SchemaValidationContext
         return $this->errors;
     }
 
-    public function validateRootTypes()
+    public function validateRootTypes() : void
     {
         $queryType = $this->schema->getQueryType();
         if (! $queryType) {
@@ -95,7 +96,7 @@ class SchemaValidationContext
         }
 
         $subscriptionType = $this->schema->getSubscriptionType();
-        if (! $subscriptionType || $subscriptionType instanceof ObjectType) {
+        if ($subscriptionType === null || $subscriptionType instanceof ObjectType) {
             return;
         }
 
@@ -167,9 +168,13 @@ class SchemaValidationContext
         foreach ($directives as $directive) {
             // Ensure all directives are in fact GraphQL directives.
             if (! $directive instanceof Directive) {
+                $nodes = is_object($directive)
+                    ? $directive->astNode
+                    : null;
+
                 $this->reportError(
                     'Expected directive but got: ' . Utils::printSafe($directive) . '.',
-                    is_object($directive) ? $directive->astNode : null
+                    $nodes
                 );
                 continue;
             }
@@ -222,7 +227,7 @@ class SchemaValidationContext
 
             $nodes = Utils::map(
                 $directiveList,
-                static function (Directive $directive) {
+                static function (Directive $directive) : ?DirectiveDefinitionNode {
                     return $directive->astNode;
                 }
             );
@@ -263,7 +268,7 @@ class SchemaValidationContext
 
         return Utils::filter(
             $subNodes,
-            static function ($argNode) use ($argName) {
+            static function ($argNode) use ($argName) : bool {
                 return $argNode->name->value === $argName;
             }
         );
@@ -378,7 +383,7 @@ class SchemaValidationContext
             }
             $includes = Utils::some(
                 $schemaDirective->locations,
-                static function ($schemaLocation) use ($location) {
+                static function ($schemaLocation) use ($location) : bool {
                     return $schemaLocation === $location;
                 }
             );
@@ -527,7 +532,7 @@ class SchemaValidationContext
             ? ($extensionNodes
                 ? array_merge([$astNode], $extensionNodes)
                 : [$astNode])
-            : ($extensionNodes ?: []);
+            : ($extensionNodes ?? []);
     }
 
     /**
@@ -566,7 +571,7 @@ class SchemaValidationContext
             return $typeNode->fields;
         });
 
-        return Utils::filter($subNodes, static function ($fieldNode) use ($fieldName) {
+        return Utils::filter($subNodes, static function ($fieldNode) use ($fieldName) : bool {
             return $fieldNode->name->value === $fieldName;
         });
     }
@@ -711,7 +716,7 @@ class SchemaValidationContext
             return $typeNode->interfaces;
         });
 
-        return Utils::filter($subNodes, static function ($ifaceNode) use ($iface) {
+        return Utils::filter($subNodes, static function ($ifaceNode) use ($iface) : bool {
             return $ifaceNode->name->value === $iface->name;
         });
     }
@@ -840,22 +845,21 @@ class SchemaValidationContext
                     }
                 }
 
-                if ($ifaceArg || ! ($objectArg->getType() instanceof NonNull)) {
+                if ($ifaceArg || ! $objectArg->isRequired()) {
                     continue;
                 }
 
                 $this->reportError(
                     sprintf(
-                        'Object field argument %s.%s(%s:) is of required type %s but is not also provided by the Interface field %s.%s.',
+                        'Object field %s.%s includes required argument %s that is missing from the Interface field %s.%s.',
                         $object->name,
                         $fieldName,
                         $argName,
-                        Utils::printSafe($objectArg->getType()),
                         $iface->name,
                         $fieldName
                     ),
                     [
-                        $this->getFieldArgTypeNode($object, $fieldName, $argName),
+                        $this->getFieldArgNode($object, $fieldName, $argName),
                         $this->getFieldNode($iface, $fieldName),
                     ]
                 );
@@ -911,7 +915,7 @@ class SchemaValidationContext
             return $unionNode->types;
         });
 
-        return Utils::filter($subNodes, static function ($typeNode) use ($typeName) {
+        return Utils::filter($subNodes, static function ($typeNode) use ($typeName) : bool {
             return $typeNode->name->value === $typeName;
         });
     }
@@ -971,7 +975,7 @@ class SchemaValidationContext
             return $enumNode->values;
         });
 
-        return Utils::filter($subNodes, static function ($valueNode) use ($valueName) {
+        return Utils::filter($subNodes, static function ($valueNode) use ($valueName) : bool {
             return $valueNode->name->value === $valueName;
         });
     }

@@ -6,6 +6,7 @@ namespace GraphQL\Type\Definition;
 
 use GraphQL\Error\InvariantViolation;
 use GraphQL\Language\AST\InputValueDefinitionNode;
+use GraphQL\Type\Schema;
 use GraphQL\Utils\Utils;
 use function array_key_exists;
 use function is_array;
@@ -29,19 +30,14 @@ class FieldArgument
     /** @var mixed[] */
     public $config;
 
-    /** @var InputType&Type */
+    /** @var Type&InputType */
     private $type;
 
-    /**
-     * @param mixed[] $def
-     */
+    /** @param mixed[] $def */
     public function __construct(array $def)
     {
         foreach ($def as $key => $value) {
             switch ($key) {
-                case 'type':
-                    $this->type = $value;
-                    break;
                 case 'name':
                     $this->name = $value;
                     break;
@@ -77,17 +73,29 @@ class FieldArgument
         return $map;
     }
 
-    /**
-     * @return InputType&Type
-     */
     public function getType() : Type
     {
+        if (! isset($this->type)) {
+            /**
+             * TODO: replace this phpstan cast with native assert
+             *
+             * @var Type&InputType
+             */
+            $type       = Schema::resolveType($this->config['type']);
+            $this->type = $type;
+        }
+
         return $this->type;
     }
 
     public function defaultValueExists() : bool
     {
         return array_key_exists('defaultValue', $this->config);
+    }
+
+    public function isRequired() : bool
+    {
+        return $this->getType() instanceof NonNull && ! $this->defaultValueExists();
     }
 
     public function assertValid(FieldDefinition $parentField, Type $parentType)
@@ -99,7 +107,7 @@ class FieldArgument
                 sprintf('%s.%s(%s:) %s', $parentType->name, $parentField->name, $this->name, $e->getMessage())
             );
         }
-        $type = $this->type;
+        $type = $this->getType();
         if ($type instanceof WrappingType) {
             $type = $type->getWrappedType(true);
         }

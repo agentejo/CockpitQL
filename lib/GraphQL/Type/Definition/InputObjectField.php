@@ -7,7 +7,9 @@ namespace GraphQL\Type\Definition;
 use GraphQL\Error\Error;
 use GraphQL\Error\InvariantViolation;
 use GraphQL\Language\AST\InputValueDefinitionNode;
+use GraphQL\Type\Schema;
 use GraphQL\Utils\Utils;
+use function array_key_exists;
 use function sprintf;
 
 class InputObjectField
@@ -31,13 +33,6 @@ class InputObjectField
     public $config;
 
     /**
-     * Helps to differentiate when `defaultValue` is `null` and when it was not even set initially
-     *
-     * @var bool
-     */
-    private $defaultValueExists = false;
-
-    /**
      * @param mixed[] $opts
      */
     public function __construct(array $opts)
@@ -45,10 +40,12 @@ class InputObjectField
         foreach ($opts as $k => $v) {
             switch ($k) {
                 case 'defaultValue':
-                    $this->defaultValue       = $v;
-                    $this->defaultValueExists = true;
+                    $this->defaultValue = $v;
                     break;
                 case 'defaultValueExists':
+                    break;
+                case 'type':
+                    // do nothing; type is lazy loaded in getType
                     break;
                 default:
                     $this->{$k} = $v;
@@ -62,15 +59,27 @@ class InputObjectField
      */
     public function getType() : Type
     {
+        if (! isset($this->type)) {
+            /**
+             * TODO: replace this phpstan cast with native assert
+             *
+             * @var Type&InputType
+             */
+            $type       = Schema::resolveType($this->config['type']);
+            $this->type = $type;
+        }
+
         return $this->type;
     }
 
-    /**
-     * @return bool
-     */
-    public function defaultValueExists()
+    public function defaultValueExists() : bool
     {
-        return $this->defaultValueExists;
+        return array_key_exists('defaultValue', $this->config);
+    }
+
+    public function isRequired() : bool
+    {
+        return $this->getType() instanceof NonNull && ! $this->defaultValueExists();
     }
 
     /**
@@ -83,7 +92,7 @@ class InputObjectField
         } catch (Error $e) {
             throw new InvariantViolation(sprintf('%s.%s: %s', $parentType->name, $this->name, $e->getMessage()));
         }
-        $type = $this->type;
+        $type = $this->getType();
         if ($type instanceof WrappingType) {
             $type = $type->getWrappedType(true);
         }
@@ -97,9 +106,9 @@ class InputObjectField
             )
         );
         Utils::invariant(
-            empty($this->config['resolve']),
+            ! array_key_exists('resolve', $this->config),
             sprintf(
-                '%s.%s field type has a resolve property, but Input Types cannot define resolvers.',
+                '%s.%s field has a resolve property, but Input Types cannot define resolvers.',
                 $parentType->name,
                 $this->name
             )

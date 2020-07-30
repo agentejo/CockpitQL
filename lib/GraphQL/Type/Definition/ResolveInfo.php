@@ -40,7 +40,7 @@ class ResolveInfo
      * Expected return type of the field being resolved.
      *
      * @api
-     * @var OutputType&Type
+     * @var Type
      */
     public $returnType;
 
@@ -108,7 +108,11 @@ class ResolveInfo
      */
     public $variableValues = [];
 
-    /** @var QueryPlan */
+    /**
+     * Lazily initialized.
+     *
+     * @var QueryPlan
+     */
     private $queryPlan;
 
     /**
@@ -175,7 +179,7 @@ class ResolveInfo
      *
      * @param int $depth How many levels to include in output
      *
-     * @return bool[]
+     * @return array<string, mixed>
      *
      * @api
      */
@@ -203,7 +207,7 @@ class ResolveInfo
      */
     public function lookAhead(array $options = []) : QueryPlan
     {
-        if ($this->queryPlan === null) {
+        if (! isset($this->queryPlan)) {
             $this->queryPlan = new QueryPlan(
                 $this->parentType,
                 $this->schema,
@@ -225,7 +229,7 @@ class ResolveInfo
         $fields = [];
         foreach ($selectionSet->selections as $selectionNode) {
             if ($selectionNode instanceof FieldNode) {
-                $fields[$selectionNode->name->value] = $descend > 0 && ! empty($selectionNode->selectionSet)
+                $fields[$selectionNode->name->value] = $descend > 0 && $selectionNode->selectionSet !== null
                     ? $this->foldSelectionSet($selectionNode->selectionSet, $descend - 1)
                     : true;
             } elseif ($selectionNode instanceof FragmentSpreadNode) {

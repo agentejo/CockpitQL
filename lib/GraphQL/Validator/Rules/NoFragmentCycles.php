@@ -9,6 +9,7 @@ use GraphQL\Language\AST\FragmentDefinitionNode;
 use GraphQL\Language\AST\FragmentSpreadNode;
 use GraphQL\Language\AST\NodeKind;
 use GraphQL\Language\Visitor;
+use GraphQL\Language\VisitorOperation;
 use GraphQL\Utils\Utils;
 use GraphQL\Validator\ValidationContext;
 use function array_pop;
@@ -41,10 +42,10 @@ class NoFragmentCycles extends ValidationRule
         $this->spreadPathIndexByName = [];
 
         return [
-            NodeKind::OPERATION_DEFINITION => static function () {
+            NodeKind::OPERATION_DEFINITION => static function () : VisitorOperation {
                 return Visitor::skipNode();
             },
-            NodeKind::FRAGMENT_DEFINITION  => function (FragmentDefinitionNode $node) use ($context) {
+            NodeKind::FRAGMENT_DEFINITION  => function (FragmentDefinitionNode $node) use ($context) : VisitorOperation {
                 $this->detectCycleRecursive($node, $context);
 
                 return Visitor::skipNode();
@@ -54,7 +55,7 @@ class NoFragmentCycles extends ValidationRule
 
     private function detectCycleRecursive(FragmentDefinitionNode $fragment, ValidationContext $context)
     {
-        if (! empty($this->visitedFrags[$fragment->name->value])) {
+        if (isset($this->visitedFrags[$fragment->name->value])) {
             return;
         }
 
@@ -63,7 +64,7 @@ class NoFragmentCycles extends ValidationRule
 
         $spreadNodes = $context->getFragmentSpreads($fragment);
 
-        if (empty($spreadNodes)) {
+        if (count($spreadNodes) === 0) {
             return;
         }
 
@@ -105,7 +106,7 @@ class NoFragmentCycles extends ValidationRule
         return sprintf(
             'Cannot spread fragment "%s" within itself%s.',
             $fragName,
-            ! empty($spreadNames) ? ' via ' . implode(', ', $spreadNames) : ''
+            count($spreadNames) > 0 ? ' via ' . implode(', ', $spreadNames) : ''
         );
     }
 }

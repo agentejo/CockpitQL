@@ -18,6 +18,7 @@ use GraphQL\Language\AST\UnionTypeDefinitionNode;
 use GraphQL\Language\Parser;
 use GraphQL\Language\Source;
 use GraphQL\Type\Definition\Directive;
+use GraphQL\Type\Definition\Type;
 use GraphQL\Type\Schema;
 use GraphQL\Validator\DocumentValidator;
 use function array_map;
@@ -83,6 +84,7 @@ class BuildSchema
      *
      *    - commentDescriptions:
      *        Provide true to use preceding comments as the description.
+     *        This option is provided to ease adoption and will be removed in v16.
      *
      * @param bool[] $options
      *
@@ -102,7 +104,7 @@ class BuildSchema
     public function buildSchema()
     {
         $options = $this->options;
-        if (empty($options['assumeValid']) && empty($options['assumeValidSDL'])) {
+        if (! ($options['assumeValid'] ?? false) && ! ($options['assumeValidSDL'] ?? false)) {
             DocumentValidator::assertValidSDL($this->ast);
         }
 
@@ -115,14 +117,9 @@ class BuildSchema
                 case $definition instanceof SchemaDefinitionNode:
                     $schemaDef = $definition;
                     break;
-                case $definition instanceof ScalarTypeDefinitionNode:
-                case $definition instanceof ObjectTypeDefinitionNode:
-                case $definition instanceof InterfaceTypeDefinitionNode:
-                case $definition instanceof EnumTypeDefinitionNode:
-                case $definition instanceof UnionTypeDefinitionNode:
-                case $definition instanceof InputObjectTypeDefinitionNode:
+                case $definition instanceof TypeDefinitionNode:
                     $typeName = $definition->name->value;
-                    if (! empty($this->nodeMap[$typeName])) {
+                    if (isset($this->nodeMap[$typeName])) {
                         throw new Error(sprintf('Type "%s" was defined more than once.', $typeName));
                     }
                     $typeDefs[]               = $definition;
@@ -145,7 +142,7 @@ class BuildSchema
         $DefinitionBuilder = new ASTDefinitionBuilder(
             $this->nodeMap,
             $this->options,
-            static function ($typeName) {
+            static function ($typeName) : void {
                 throw new Error('Type "' . $typeName . '" not found in document.');
             },
             $this->typeConfigDecorator
@@ -189,12 +186,12 @@ class BuildSchema
             'subscription' => isset($operationTypes['subscription'])
                 ? $DefinitionBuilder->buildType($operationTypes['subscription'])
                 : null,
-            'typeLoader'   => static function ($name) use ($DefinitionBuilder) {
+            'typeLoader'   => static function ($name) use ($DefinitionBuilder) : Type {
                 return $DefinitionBuilder->buildType($name);
             },
             'directives'   => $directives,
             'astNode'      => $schemaDef,
-            'types'        => function () use ($DefinitionBuilder) {
+            'types'        => function () use ($DefinitionBuilder) : array {
                 $types = [];
                 /** @var ScalarTypeDefinitionNode|ObjectTypeDefinitionNode|InterfaceTypeDefinitionNode|UnionTypeDefinitionNode|EnumTypeDefinitionNode|InputObjectTypeDefinitionNode $def */
                 foreach ($this->nodeMap as $name => $def) {

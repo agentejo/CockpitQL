@@ -7,6 +7,7 @@ namespace GraphQL\Type\Definition;
 use GraphQL\Error\Error;
 use GraphQL\Error\InvariantViolation;
 use GraphQL\Language\AST\FieldDefinitionNode;
+use GraphQL\Type\Schema;
 use GraphQL\Utils\Utils;
 use function is_array;
 use function is_callable;
@@ -70,7 +71,6 @@ class FieldDefinition
     protected function __construct(array $config)
     {
         $this->name      = $config['name'];
-        $this->type      = $config['type'];
         $this->resolveFn = $config['resolve'] ?? null;
         $this->mapFn     = $config['map'] ?? null;
         $this->args      = isset($config['args']) ? FieldArgument::createMap($config['args']) : [];
@@ -84,7 +84,12 @@ class FieldDefinition
         $this->complexityFn = $config['complexity'] ?? self::DEFAULT_COMPLEXITY_FN;
     }
 
-    public static function defineFieldMap(Type $type, $fields)
+    /**
+     * @param (callable():mixed[])|mixed[] $fields
+     *
+     * @return array<string, self>
+     */
+    public static function defineFieldMap(Type $type, $fields) : array
     {
         if (is_callable($fields)) {
             $fields = $fields();
@@ -164,7 +169,7 @@ class FieldDefinition
      */
     public function getArg($name)
     {
-        foreach ($this->args ?: [] as $arg) {
+        foreach ($this->args ?? [] as $arg) {
             /** @var FieldArgument $arg */
             if ($arg->name === $name) {
                 return $arg;
@@ -174,11 +179,18 @@ class FieldDefinition
         return null;
     }
 
-    /**
-     * @return OutputType&Type
-     */
     public function getType() : Type
     {
+        if (! isset($this->type)) {
+            /**
+             * TODO: replace this phpstan cast with native assert
+             *
+             * @var Type&OutputType
+             */
+            $type       = Schema::resolveType($this->config['type']);
+            $this->type = $type;
+        }
+
         return $this->type;
     }
 
@@ -217,7 +229,7 @@ class FieldDefinition
             )
         );
 
-        $type = $this->type;
+        $type = $this->getType();
         if ($type instanceof WrappingType) {
             $type = $type->getWrappedType(true);
         }

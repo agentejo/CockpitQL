@@ -33,15 +33,13 @@ use GraphQL\Type\Definition\UnionType;
 use GraphQL\Type\Introspection;
 use GraphQL\Type\Schema;
 use GraphQL\Utils\AST;
-use GraphQL\Utils\TypeInfo;
 use GraphQL\Utils\Utils;
 use SplQueue;
 use stdClass;
 use Throwable;
+use function count;
 use function is_array;
 use function is_string;
-use function json_decode;
-use function json_encode;
 use function sprintf;
 
 class CoroutineExecutor implements Runtime, ExecutorImplementation
@@ -154,7 +152,7 @@ class CoroutineExecutor implements Runtime, ExecutorImplementation
                 $array[$propertyName] = self::resultToArray($propertyValue);
             }
 
-            if ($emptyObjectAsStdClass && empty($array)) {
+            if ($emptyObjectAsStdClass && count($array) === 0) {
                 return new stdClass();
             }
 
@@ -184,17 +182,17 @@ class CoroutineExecutor implements Runtime, ExecutorImplementation
         $this->collector = new Collector($this->schema, $this);
         $this->collector->initialize($this->documentNode, $this->operationName);
 
-        if (! empty($this->errors)) {
+        if (count($this->errors) > 0) {
             return $this->promiseAdapter->createFulfilled($this->finishExecute(null, $this->errors));
         }
 
         [$errors, $coercedVariableValues] = Values::getVariableValues(
             $this->schema,
-            $this->collector->operation->variableDefinitions ?: [],
-            $this->rawVariableValues ?: []
+            $this->collector->operation->variableDefinitions ?? [],
+            $this->rawVariableValues ?? []
         );
 
-        if (! empty($errors)) {
+        if (count($errors ?? []) > 0) {
             return $this->promiseAdapter->createFulfilled($this->finishExecute(null, $errors));
         }
 
@@ -229,7 +227,7 @@ class CoroutineExecutor implements Runtime, ExecutorImplementation
         $this->run();
 
         if ($this->pending > 0) {
-            return $this->promiseAdapter->create(function (callable $resolve) {
+            return $this->promiseAdapter->create(function (callable $resolve) : void {
                 $this->doResolve = $resolve;
             });
         }
@@ -316,13 +314,13 @@ class CoroutineExecutor implements Runtime, ExecutorImplementation
                         $this->promiseAdapter
                             ->then(
                                 $value,
-                                function ($value) use ($strand) {
+                                function ($value) use ($strand) : void {
                                     $strand->success = true;
                                     $strand->value   = $value;
                                     $this->queue->enqueue($strand);
                                     $this->done();
                                 },
-                                function (Throwable $throwable) use ($strand) {
+                                function (Throwable $throwable) use ($strand) : void {
                                     $strand->success = false;
                                     $strand->value   = $throwable;
                                     $this->queue->enqueue($strand);
@@ -554,7 +552,7 @@ class CoroutineExecutor implements Runtime, ExecutorImplementation
         if ($nonNull && $returnValue === null) {
             $this->addError(Error::createLocatedError(
                 new InvariantViolation(sprintf(
-                    'Cannot return null for non-nullable field %s.%s.',
+                    'Cannot return null for non-nullable field "%s.%s".',
                     $ctx->type->name,
                     $ctx->shared->fieldName
                 )),
@@ -882,7 +880,7 @@ class CoroutineExecutor implements Runtime, ExecutorImplementation
         if ($nonNull && $returnValue === null) {
             $this->addError(Error::createLocatedError(
                 new InvariantViolation(sprintf(
-                    'Cannot return null for non-nullable field %s.%s.',
+                    'Cannot return null for non-nullable field "%s.%s".',
                     $ctx->type->name,
                     $ctx->shared->fieldName
                 )),
